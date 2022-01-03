@@ -3,3 +3,5 @@ project
 *.prj
 resources
 slprj
+.idea
+*/__pycache__
