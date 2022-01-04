@@ -1,6 +1,8 @@
 from numpy import random
 import numpy as np
 from matplotlib.patches import Wedge, Rectangle
+from matplotlib.collections import PatchCollection
+from matplotlib import pyplot as plt
 
 
 class KDTree:
@@ -54,6 +56,10 @@ class KDTree:
         self.split_point = None
         self.left_child = None
         self.right_child = None
+
+        # Debug options
+        self.fig = None
+        self.ax = None
 
     def update_child_bounds(self):
         # Sanity check
@@ -169,7 +175,9 @@ class KDTree:
         elif depth_code == 1 and self.right_child is not None:
             return self.right_child.decode(code)
         else:
-            return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
+            # return np.append(self.min_bounds, self.max_bounds)
+            return 0.5*(self.min_bounds+self.max_bounds)
+            # return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
 
     def draw_rectangle(self):
         """Recursively plot a visualization of the KD tree region"""
@@ -177,7 +185,7 @@ class KDTree:
         patches = []
         colors = []
 
-        self.update_child_bounds()
+        # self.update_child_bounds()
 
         if self.left_child is not None:
             left_child_patches, left_child_colors = self.left_child.draw_rectangle()
@@ -194,6 +202,26 @@ class KDTree:
             colors += [self.depth]
 
         return patches, colors
+
+    def draw_tree(self, dims=[0, 1]):
+        # Debug options
+        if self.fig is None:
+            with plt.ion():
+                self.fig, self.ax = plt.subplots()
+
+        #self.ax.cla()
+        patches, colors = self.draw_rectangle()
+        collection = PatchCollection(patches, cmap=plt.cm.get_cmap('gray'), alpha=0.75)
+        collection.set_array(np.asarray(colors))
+        collection.set_edgecolor('k')
+        self.ax.add_collection(collection)
+        # cbar = plt.colorbar(collection)
+        # cbar.set_label('depth', rotation=90)
+        self.ax.set_xlim(-10, 10)
+        self.ax.set_ylim(-10, 10)
+        #self.fig.canvas.draw()
+        plt.show(block=False)
+        plt.pause(0.0001)
 
     def draw_sector(self):
         """Recursively plot a visualization of the KD tree region"""
