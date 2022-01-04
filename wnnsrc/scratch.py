@@ -70,7 +70,7 @@ if __name__ == '__main__':
     """Example usage"""
 
     # tree = KDTree(max_depth=16, learning_rate=0.1, min_splitting_volume=0.00001, min_bounds=[0, -60], max_bounds=[20, 60])
-    tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01, min_bounds=[0, 0],
+    tree = KDTree(max_depth=16, learning_rate =0.001, min_splitting_volume=0.01, min_bounds=[0, 0],
                   max_bounds=[10, 10])
 
     # Create a set of structured random points in two dimensions
