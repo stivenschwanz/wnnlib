@@ -18,8 +18,8 @@ def clear_encoders():
     wnnglobals.g_encoders.clear()
 
 
-def draw_encoder(encoder_id):
-    wnnglobals.g_encoders[encoder_id].draw_tree(encoder_id)
+def draw_encoder(encoder_id, point, marker):
+    wnnglobals.g_encoders[encoder_id].draw_tree(point, marker)
 
 
 def encode(encoder_id, point):
