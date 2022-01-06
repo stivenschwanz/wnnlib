@@ -1,2 +1,2 @@
 # wnnlib
-WNN
+Weightless Neural Networks (WNN) library.
