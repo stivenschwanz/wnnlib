@@ -203,10 +203,9 @@ class KDTree:
 
         return patches, colors
 
-    def draw_tree(self, point, marker="."):
+    def draw_tree(self, point, min_bounds, max_bounds, dx=0, dy=1, marker="."):
         # Debug options
         if self.fig is None:
-        #    with plt.ion():
             self.fig, self.ax = plt.subplots()
 
         self.ax.clear()
@@ -215,16 +214,14 @@ class KDTree:
         collection.set_array(np.asarray(colors))
         collection.set_edgecolor('k')
         self.ax.add_collection(collection)
-        self.ax.scatter(point[0], point[1], s=10, marker=marker)
+        self.ax.scatter(point[dx], point[dy], s=10, marker=marker)
         # cbar = plt.colorbar(collection)
         # cbar.set_label('depth', rotation=90)
-        self.ax.set_xlim(-10, 10)
-        self.ax.set_ylim(-10, 10)
-        # self.fig.canvas.draw()
-
-        self.ax.redraw_in_frame()
-        # plt.show(block=False)
-        # plt.pause(0.0001)
+        self.ax.set_xlim(min_bounds[dx], max_bounds[dx])
+        self.ax.set_ylim(min_bounds[dy], max_bounds[dy])
+        # self.ax.redraw_in_frame()
+        plt.show(block=False)
+        plt.pause(0.0001)
 
     def draw_sector(self):
         """Recursively plot a visualization of the KD tree region"""
