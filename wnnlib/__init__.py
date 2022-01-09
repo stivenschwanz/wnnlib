@@ -1,5 +1,10 @@
 import KDTree
+import VGRAMNode
 import globals
+
+
+def add_vgram_layer(layer_id, output_dims):
+    return 0
 
 
 def add_encoder(encoder_id, output_dims, learning_rate, min_splitting_volume, min_bounds, max_bounds):

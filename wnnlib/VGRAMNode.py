@@ -5,7 +5,7 @@ import unittest
 import time
 
 
-class VGRAM:
+class VGRAMNode:
     """This class defines a Virtual Generalized Random Access Memory (VGRAM) node."""
     def __init__(self, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist):
         """
@@ -90,13 +90,18 @@ class VGRAM:
 
         return output_value
 
-    def learn(self, input_pattern):
+    def learn(self, input_pattern, output_step=int(1)):
         """
             Update the stored value associated with the closest input patter to an input pattern.
 
             Parameters:
                 input_pattern (bool[]): Input pattern.
+                output_step (int): Output step.
         """
+        # Skip learning
+        if output_step == 0:
+            return
+
         # Prune a low frequency pairs first
         if self.num_valid_pairs == self.max_mem_size:
             min_value = np.min(self.output_values)
@@ -121,18 +126,18 @@ class VGRAM:
 
             if closest_pattern_dist <= self.min_dist:
                 # Update an existing input - output pair
-                self.output_values[closest_pattern_idx] = self.output_values[closest_pattern_idx] + int(1)
+                self.output_values[closest_pattern_idx] += int(output_step)
             else:
                 # Store a new input - output pair
                 empty_entry_idx = np.argmin(self.valid_pairs)
                 self.input_patterns[empty_entry_idx, :] = input_pattern
-                self.output_values[empty_entry_idx] = int(1)
+                self.output_values[empty_entry_idx] = int(output_step)
                 self.valid_pairs[empty_entry_idx] = True
                 self.num_valid_pairs += int(1)
 
-    def debug_memory(self):
+    def debug(self):
         """
-            Debug memory.
+            Debug node memory.
         """
         if self.fig is None:
             self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
@@ -150,19 +155,19 @@ class VGRAM:
         plt.pause(0.00001)
 
 
-class TestVGRAM(unittest.TestCase):
+class TestVGRAMNode(unittest.TestCase):
     """
        Extends unittest.TestCase class to implement unit tests for the VGRAM class.
     """
-    number_of_patterns = 1024
+    number_of_patterns = 256
     min_mem_size = 63
     max_mem_size = 64
     min_dist = 2
     max_dist = 8
     pattern_length = 16
-    node = VGRAM(pattern_length=pattern_length,
-                 min_mem_size=min_mem_size, max_mem_size=max_mem_size,
-                 min_dist=min_dist, max_dist=max_dist)
+    node = VGRAMNode(pattern_length=pattern_length,
+                     min_mem_size=min_mem_size, max_mem_size=max_mem_size,
+                     min_dist=min_dist, max_dist=max_dist)
 
     def test_0_learn(self):
         """
@@ -173,10 +178,11 @@ class TestVGRAM(unittest.TestCase):
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             t = time.time()
-            value = self.node.learn(pattern)
+            self.node.learn(pattern)
             elapsed += time.time() - t
-            self.node.debug_memory()
+            self.node.debug()
         print('Elapsed time %s s' % elapsed)
+        print('Average learn time %s s' % (elapsed / self.number_of_patterns))
 
     def test_1_recall(self):
         """
@@ -188,8 +194,10 @@ class TestVGRAM(unittest.TestCase):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             t = time.time()
             value = self.node.recall(pattern)
+            print(value)
             elapsed += time.time() - t
         print('Elapsed time %s s' % elapsed)
+        print('Average recall time %s s' % (elapsed / self.number_of_patterns))
 
 
 if __name__ == '__main__':
