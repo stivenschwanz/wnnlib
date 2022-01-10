@@ -7,19 +7,20 @@ from wnnlib import VGRAMNode
 
 
 class VGRAMLayer:
-    """This class defines a layer of Virtual Generalized Random Access Memory (VGRAM) nodes."""
-
+    """
+    This class defines a layer of Virtual Generalized Random Access Memory (VGRAM) nodes.
+    """
     def __init__(self, output_dims, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist):
         """
-        Initialize an empty VGRAM node.
+            Initialize an empty VGRAM node.
 
-        Parameters:
-            output_dims (int, int): Output dimensions.
-            pattern_length (int): Length of the stored patterns.
-            min_mem_size (int): Minimum memory size.
-            max_mem_size (int): Maximum memory size.
-            min_dist (int): Minimum Hamming distance.
-            max_dist (int): Maximum Hamming distance.
+            Parameters:
+                output_dims (int, int): Output dimensions.
+                pattern_length (int): Length of the stored patterns.
+                min_mem_size (int): Minimum memory size.
+                max_mem_size (int): Maximum memory size.
+                min_dist (int): Minimum Hamming distance.
+                max_dist (int): Maximum Hamming distance.
         """
         # Initialize layer nodes
         self.nodes = np.empty(output_dims, dtype=object)
@@ -39,28 +40,28 @@ class VGRAMLayer:
 
     def recall(self, input_pattern):
         """
-           Recall the output value associated with the closest stored pattern to the input pattern.
+        Recall the output value associated with the closest stored pattern to the input pattern.
 
-           Parameters:
-               input_pattern (bool[]): Input pattern.
+        Parameters:
+            input_pattern (bool[]): Input pattern.
 
-           Returns:
-               (int[]): Output values.
+        Returns:
+            (int[]): Output values.
         """
         it = np.nditer(self.output_values, flags=['multi_index'], op_flags=['readwrite'])
         while not it.finished:
             self.output_values[it.multi_index] = self.nodes[it.multi_index].recall(input_pattern)
             it.iternext()
-            
+
         return self.output_values
 
     def learn(self, input_pattern, output_steps):
         """
-            Update the stored value associated with the closest input patter to an input pattern.
+        Update the stored value associated with the closest input patter to an input pattern.
 
-            Parameters:
-                input_pattern (bool[]): Input pattern.
-                output_steps (int[]): Output steps.
+        Parameters:
+            input_pattern (bool[]): Input pattern.
+            output_steps (int[]): Output steps.
         """
         it = np.nditer(self.nodes, flags=['multi_index', 'refs_ok'], op_flags=['readwrite'])
         while not it.finished:
@@ -69,7 +70,7 @@ class VGRAMLayer:
 
     def debug(self):
         """
-            Debug layer outputs.
+        Debug layer outputs.
         """
         if self.fig is None:
             self.fig, self.ax = plt.subplots()
@@ -84,7 +85,7 @@ class VGRAMLayer:
 
 class TestVGRAMLayer(unittest.TestCase):
     """
-       Extends unittest.TestCase class to implement unit tests for the VGRAMLayer class.
+    Extends unittest.TestCase class to implement unit tests for the VGRAMLayer class.
     """
     output_dims = (16, 16)
     number_of_patterns = 256
@@ -99,7 +100,7 @@ class TestVGRAMLayer(unittest.TestCase):
 
     def test_0_learn(self):
         """
-            Test case 0: batch learning.
+        Test case 0: batch learning.
         """
         elapsed = 0
         print('Learning %d patterns.' % self.number_of_patterns)
@@ -114,7 +115,7 @@ class TestVGRAMLayer(unittest.TestCase):
 
     def test_1_recall(self):
         """
-            Test case 1: batch recalling.
+        Test case 1: batch recalling.
         """
         elapsed = 0
         print('Recalling %d patterns.' % self.number_of_patterns)

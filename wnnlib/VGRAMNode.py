@@ -6,7 +6,9 @@ import time
 
 
 class VGRAMNode:
-    """This class defines a Virtual Generalized Random Access Memory (VGRAM) node."""
+    """
+    This class defines a Virtual Generalized Random Access Memory (VGRAM) node.
+    """
     def __init__(self, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist):
         """
         Initialize an empty VGRAM node.
@@ -48,13 +50,13 @@ class VGRAMNode:
 
     def find_closest_pattern(self, input_pattern):
         """
-            Find the closest stored input pattern according to the Hamming distance.
-            
-            Parameters:
-                input_pattern (bool[]): Array of booleans.
-                
-            Returns:
-                (int, int): Hamming distance to the closest pattern and index of the closest pattern         
+        Find the closest stored input pattern according to the Hamming distance.
+
+        Parameters:
+            input_pattern (bool[]): Array of booleans.
+
+        Returns:
+            (int, int): Hamming distance to the closest pattern and index of the closest pattern.
         """
         closest_pattern_dist = np.inf
         closest_pattern_idx = None
@@ -70,13 +72,13 @@ class VGRAMNode:
 
     def recall(self, input_pattern):
         """
-            Recall the output value associated with the closest stored pattern to the input pattern.
+        Recall the output value associated with the closest stored pattern to the input pattern.
 
-            Parameters:
-                input_pattern (bool[]): Input pattern.
+        Parameters:
+            input_pattern (bool[]): Input pattern.
 
-            Returns:
-                (int): Output value.
+        Returns:
+            (int): Output value.
         """
         # Default to zero
         output_value = int(0)
@@ -92,11 +94,11 @@ class VGRAMNode:
 
     def learn(self, input_pattern, output_step=int(1)):
         """
-            Update the stored value associated with the closest input patter to an input pattern.
+        Update the stored value associated with the closest input patter to an input pattern.
 
-            Parameters:
-                input_pattern (bool[]): Input pattern.
-                output_step (int): Output step.
+        Parameters:
+            input_pattern (bool[]): Input pattern.
+            output_step (int): Output step.
         """
         # Skip learning
         if output_step == 0:
@@ -137,7 +139,7 @@ class VGRAMNode:
 
     def debug(self):
         """
-            Debug node memory.
+        Debug node memory.
         """
         if self.fig is None:
             self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
@@ -157,7 +159,7 @@ class VGRAMNode:
 
 class TestVGRAMNode(unittest.TestCase):
     """
-       Extends unittest.TestCase class to implement unit tests for the VGRAM class.
+    Extends unittest.TestCase class to implement unit tests for the VGRAM class.
     """
     number_of_patterns = 256
     min_mem_size = 63
@@ -171,7 +173,7 @@ class TestVGRAMNode(unittest.TestCase):
 
     def test_0_learn(self):
         """
-            Test case 0: batch learning.
+        Test case 0: batch learning.
         """
         elapsed = 0
         print('Learning %d patterns.' % self.number_of_patterns)
@@ -186,7 +188,7 @@ class TestVGRAMNode(unittest.TestCase):
 
     def test_1_recall(self):
         """
-            Test case 1: batch recalling.
+        Test case 1: batch recalling.
         """
         elapsed = 0
         print('Recalling %d patterns.' % self.number_of_patterns)

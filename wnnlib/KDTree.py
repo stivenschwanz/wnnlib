@@ -6,13 +6,24 @@ from matplotlib import pyplot as plt
 
 
 class KDTree:
-    """This class defines a self-adapting kd-tree which incrementally build an encoding function directly from data.
+    """
+    This class defines a self-adapting kd-tree which incrementally build an encoding function directly from data.
     More precisely, as we travel from the root node to the corresponding leaf to encode a data point, we build a binary
     sequence by concatenating '0' or '1' when we turn to the left or to the right child, respectively. Moreover,
     we adjust the splitting point at each visited node using a convex combination rule based on a given learning rate
-    between the current splitting point and the data point at the corresponding node dimension."""
+    between the current splitting point and the data point at the corresponding node dimension.
+    """
     def __init__(self, max_depth, learning_rate, min_splitting_volume, min_bounds, max_bounds, depth=0):
-        """Initialize an empty kd-tree node"""
+        """
+        Initialize an empty kd-tree node
+
+        Parameters:
+            max_depth (int): Maximum depth of the kd-tree.
+            learning_rate (double): Learning rate.
+            min_splitting_volume (double): Minimum splitting volume.
+            min_bounds (double[]): Minimum bounds.
+            max_bounds (double[]): Maximum bounds.
+        """
 
         # Check if the maximum depth is strictly positive
         assert max_depth > 0
@@ -62,6 +73,9 @@ class KDTree:
         self.ax = None
 
     def update_child_bounds(self):
+        """
+        Auxiliary method to update the subtree bounds.
+        """
         # Sanity check
         if self.depth == self.max_depth:
             return
@@ -112,7 +126,15 @@ class KDTree:
             self.right_child.volume = right_child_volume
 
     def encode(self, point):
-        """Encode a k-dimensional point as a max_depth-length binary sequence using the kd-tree"""
+        """
+        Encode a k-dimensional point as a max_depth-length binary sequence using the kd-tree.
+
+        Parameters:
+            point (double[]): k-dimensional point.
+
+        Returns:
+            (int[]): Sparse binary representation of the given point.
+        """
 
         # Check if the maximum depth was achieved
         if self.depth >= self.max_depth:
@@ -156,7 +178,15 @@ class KDTree:
             return np.random.randint(low=0, high=2, size=self.max_depth-self.depth)
 
     def decode(self, code):
+        """
+        Decode a sparse representation as a k-dimensional point using the kd-tree.
 
+        Parameters:
+            code (int[]): Sparse binary representation.
+
+        Returns:
+            (double[]): k-dimensional decoded point.
+        """
         # Get the number of dimensions
         k = len(self.sizes)
 
@@ -180,7 +210,9 @@ class KDTree:
             return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
 
     def draw_rectangle(self):
-        """Recursively plot a visualization of the KD tree region"""
+        """
+        Recursively plot a visualization of the KD tree region.
+        """
 
         patches = []
         colors = []
@@ -204,6 +236,9 @@ class KDTree:
         return patches, colors
 
     def draw_tree(self, point, min_bounds, max_bounds, dx=0, dy=1, marker="."):
+        """
+        Recursively plot a visualization of the kd-tree using rectangles.
+        """
         # Debug options
         if self.fig is None:
             self.fig, self.ax = plt.subplots()
@@ -224,7 +259,9 @@ class KDTree:
         plt.pause(0.0001)
 
     def draw_sector(self):
-        """Recursively plot a visualization of the KD tree region"""
+        """
+        Recursively plot a visualization of the kd-tree using sectors.
+        """
         patches = []
 
         self.update_child_bounds()
@@ -236,6 +273,7 @@ class KDTree:
             patches += self.right_child.draw_sector()
 
         if len(patches) == 0:
-            patches += [Wedge((0, 0), self.max_bounds[1], self.min_bounds[0], self.max_bounds[0], width=(self.max_bounds[1]-self.min_bounds[1]))]
+            patches += [Wedge((0, 0), self.max_bounds[1], self.min_bounds[0], self.max_bounds[0],
+                              width=(self.max_bounds[1]-self.min_bounds[1]))]
 
         return patches
