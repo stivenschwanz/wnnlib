@@ -1,8 +1,10 @@
+import unittest
 from numpy import random
 import numpy as np
 from matplotlib.patches import Wedge, Rectangle
 from matplotlib.collections import PatchCollection
 from matplotlib import pyplot as plt
+import time
 
 
 class KDTree:
@@ -24,7 +26,6 @@ class KDTree:
             min_bounds (double[]): Minimum bounds.
             max_bounds (double[]): Maximum bounds.
         """
-
         # Check if the maximum depth is strictly positive
         assert max_depth > 0
 
@@ -211,7 +212,7 @@ class KDTree:
 
     def draw_rectangle(self):
         """
-        Recursively plot a visualization of the KD tree region.
+        Recursively plot a visualization of the kd-tree using rectangles.
         """
 
         patches = []
@@ -235,29 +236,6 @@ class KDTree:
 
         return patches, colors
 
-    def draw_tree(self, point, min_bounds, max_bounds, dx=0, dy=1, marker="."):
-        """
-        Recursively plot a visualization of the kd-tree using rectangles.
-        """
-        # Debug options
-        if self.fig is None:
-            self.fig, self.ax = plt.subplots()
-
-        self.ax.clear()
-        patches, colors = self.draw_rectangle()
-        collection = PatchCollection(patches, cmap=plt.cm.get_cmap('gray'), alpha=0.75)
-        collection.set_array(np.asarray(colors))
-        collection.set_edgecolor('k')
-        self.ax.add_collection(collection)
-        self.ax.scatter(point[dx], point[dy], s=10, marker=marker)
-        # cbar = plt.colorbar(collection)
-        # cbar.set_label('depth', rotation=90)
-        self.ax.set_xlim(min_bounds[dx], max_bounds[dx])
-        self.ax.set_ylim(min_bounds[dy], max_bounds[dy])
-        # self.ax.redraw_in_frame()
-        plt.show(block=False)
-        plt.pause(0.0001)
-
     def draw_sector(self):
         """
         Recursively plot a visualization of the kd-tree using sectors.
@@ -277,3 +255,126 @@ class KDTree:
                               width=(self.max_bounds[1]-self.min_bounds[1]))]
 
         return patches
+
+    def debug(self, points=[], style=0, dx=0, dy=1, marker="."):
+        """
+        Recursively plot a visualization of the kd-tree .
+
+        Parameters:
+            points (double[]): Points to draw.
+            style (int): Tree style (0: rectangles, 1: sectors)
+            dx (int): Index of the dimension corresponding to the X axis.
+            dy (int): Index of the dimension corresponding to the Y axis.
+            marker (string): Marker of the point.
+        """
+        # Debug options
+        if self.fig is None:
+            self.fig, self.ax = plt.subplots()
+
+        # Clear axis
+        self.ax.clear()
+
+        if style == 0:
+            patches, colors = self.draw_rectangle()
+            collection = PatchCollection(patches, cmap=plt.cm.get_cmap('gray'), alpha=0.75)
+            collection.set_array(np.asarray(colors))
+            collection.set_edgecolor('k')
+            self.ax.add_collection(collection)
+            self.ax.set_xlim(self.min_bounds[dx], self.max_bounds[dx])
+            self.ax.set_ylim(self.min_bounds[dy], self.max_bounds[dy])
+        elif style == 1:
+            circle = plt.Circle([0, 0], radius=1, ec='k', fc='g')
+            self.ax.add_patch(circle)
+            patches = self.draw_sector()
+            colors = 255 * np.random.rand(len(patches))
+            collection = PatchCollection(patches, ec='k', fc='k', lw=0.1, cmap=plt.cm.get_cmap('prism'))
+            collection.set_array(np.array(colors))
+            self.ax.add_collection(collection)
+            self.ax.set_xlim(-self.max_bounds[dx], self.max_bounds[dx])
+            self.ax.set_ylim(-self.max_bounds[dx], self.max_bounds[dx])
+        # self.ax.scatter(points[dx], points[dy], s=10, marker=marker)
+        # cbar = plt.colorbar(collection)
+        # cbar.set_label('depth', rotation=90)
+
+        # self.ax.redraw_in_frame()
+        plt.show(block=False)
+        plt.pause(0.0001)
+
+
+def exec_test(tree, data, style):
+    """
+    Execute a test.
+
+    Parameters:
+        tree (object): kd-tree.
+        data (double[]): Data points.
+        style (int): Tree style (0: rectangles, 1: sectors)
+    """
+
+    number_of_points = data.size
+    print('Encoding %d points.' % number_of_points)
+    elapsed = 0
+    i = 0
+    cdata = []
+    for point in data:
+        print('----------------------------------')
+        print(i)
+        print(point)
+        t = time.time()
+        c = tree.encode(point=point)
+        elapsed += time.time() - t
+        tree.debug(style=style)
+        print(c)
+        cdata.append(c)
+        i += 1
+    print('Elapsed time %s s' % elapsed)
+    print('Average encoding time %s s' % (elapsed / number_of_points))
+
+    print('Decoding %d points.' % number_of_points)
+    elapsed = 0
+    i = 0
+    acc_error2 = 0
+    for code in cdata:
+        print('----------------------------------')
+        print(i)
+        x = data[i, :]
+        print(x)
+        print(code)
+        t = time.time()
+        d = tree.decode(code=code)
+        elapsed += time.time() - t
+        print(d)
+        acc_error2 += np.transpose(x - d) * (x - d)
+        i += 1
+    print('Elapsed time %s s' % elapsed)
+    print('Average decoding time %s s' % (elapsed / number_of_points))
+    print('Root mean squared decoding error %s s' % (np.sqrt(acc_error2 / i)))
+
+
+class TestKDTree(unittest.TestCase):
+    """
+    Extends unittest.TestCase class to implement unit tests for the KDTree class.
+    """
+    def test_0_codec(self):
+        """
+        Test case 0: batch encoding/decoding.
+        """
+        np.random.seed(0)
+        tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01,
+                      min_bounds=[0, 0], max_bounds=[10, 10])
+        data = np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=256)
+        exec_test(tree, data, 0)
+
+    def test_1_codec(self):
+        """
+        Test case 1: batch encoding/decoding.
+        """
+        np.random.seed(0)
+        tree = KDTree(max_depth=16, learning_rate=0.1, min_splitting_volume=0.00001,
+                      min_bounds=[0, -60], max_bounds=[20, 60])
+        data = np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256)
+        exec_test(tree, data, 1)
+
+
+if __name__ == '__main__':
+    unittest.main()
