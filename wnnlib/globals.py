@@ -1,4 +1,4 @@
 
 
-g_encoders = {}
-g_layers = {}
+g_sparse_codecs = {}
+g_vgram_layers = {}
