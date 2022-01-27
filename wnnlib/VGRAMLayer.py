@@ -78,7 +78,9 @@ class VGRAMLayer:
             self.ax.axes.yaxis.set_visible(False)
 
         self.ax.clear()
-        self.ax.imshow(self.output_values, cmap='gray', vmin=0, vmax=15, interpolation='nearest')
+        self.ax.imshow(self.output_values, cmap='gray', vmin=0, vmax=15, interpolation='nearest', aspect='auto')
+
+        self.fig.tight_layout()
         plt.show(block=False)
         plt.pause(0.00001)
 

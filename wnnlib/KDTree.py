@@ -241,20 +241,26 @@ class KDTree:
         Recursively plot a visualization of the kd-tree using sectors.
         """
         patches = []
+        colors = []
 
         self.update_child_bounds()
 
         if self.left_child is not None:
-            patches += self.left_child.draw_sector()
+            left_child_patches, left_child_colors = self.left_child.draw_sector()
+            patches += left_child_patches
+            colors += left_child_colors
 
         if self.right_child is not None:
-            patches += self.right_child.draw_sector()
+            right_child_patches, right_child_colors = self.right_child.draw_sector()
+            patches += right_child_patches
+            colors += right_child_colors
 
         if len(patches) == 0:
-            patches += [Wedge((0, 0), self.max_bounds[1], self.min_bounds[0], self.max_bounds[0],
-                              width=(self.max_bounds[1]-self.min_bounds[1]))]
+            patches += [Wedge((0, 0), self.max_bounds[0], self.min_bounds[1], self.max_bounds[1],
+                              width=(self.max_bounds[0]-self.min_bounds[0]))]
+            colors += [self.depth]
 
-        return patches
+        return patches, colors
 
     def debug(self, points=[], style=0, dx=0, dy=1, marker="."):
         """
@@ -273,21 +279,21 @@ class KDTree:
 
         # Clear axis
         self.ax.clear()
+        self.ax.set_aspect('equal', adjustable='box')
 
         if style == 0:
             patches, colors = self.draw_rectangle()
-            collection = PatchCollection(patches, cmap=plt.cm.get_cmap('gray'), alpha=0.75)
+            collection = PatchCollection(patches, cmap=plt.cm.get_cmap('gray'), ec='k', alpha=0.75)
             collection.set_array(np.asarray(colors))
             collection.set_edgecolor('k')
             self.ax.add_collection(collection)
             self.ax.set_xlim(self.min_bounds[dx], self.max_bounds[dx])
             self.ax.set_ylim(self.min_bounds[dy], self.max_bounds[dy])
         elif style == 1:
-            circle = plt.Circle([0, 0], radius=1, ec='k', fc='g')
+            circle = plt.Circle([0, 0], radius=self.max_bounds[dx], ec='k', fc='w')
             self.ax.add_patch(circle)
-            patches = self.draw_sector()
-            colors = 255 * np.random.rand(len(patches))
-            collection = PatchCollection(patches, ec='k', fc='k', lw=0.1, cmap=plt.cm.get_cmap('prism'))
+            patches, colors = self.draw_sector()
+            collection = PatchCollection(patches, cmap=plt.cm.get_cmap('gray'), ec='k', alpha=0.75)
             collection.set_array(np.array(colors))
             self.ax.add_collection(collection)
             self.ax.set_xlim(-self.max_bounds[dx], self.max_bounds[dx])
@@ -297,6 +303,7 @@ class KDTree:
         # cbar.set_label('depth', rotation=90)
 
         # self.ax.redraw_in_frame()
+        self.fig.tight_layout()
         plt.show(block=False)
         plt.pause(0.0001)
 
