@@ -94,39 +94,65 @@ class TestVGRAMLayer(unittest.TestCase):
     min_dist = 2
     max_dist = 8
     pattern_length = 16
-    layer = VGRAMLayer(output_dims=output_dims, pattern_length=pattern_length,
-                       min_mem_size=min_mem_size, max_mem_size=max_mem_size,
-                       min_dist=min_dist, max_dist=max_dist)
+    layer = None
+    test_statistics = None
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up method: configure parameters and create a VGRAM node.
+        """
+        cls.layer = VGRAMLayer(output_dims=cls.output_dims, pattern_length=cls.pattern_length,
+                               min_mem_size=cls.min_mem_size, max_mem_size=cls.max_mem_size,
+                               min_dist=cls.min_dist, max_dist=cls.max_dist)
+        cls.test_statistics = {"average_recall_time": 0.0,
+                               "average_learn_time": 0.0,
+                               "elapsed_recall_time": 0.0,
+                               "elapsed_learn_time": 0.0}
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Tear down method: print test statistics.
+        """
+        print('Elapsed time to learn {0} patterns: {1:.2e} seconds'.format(cls.number_of_patterns,
+                                                                           cls.test_statistics["elapsed_learn_time"]))
+        print('Average learn time: {:.2e} seconds'.format(cls.test_statistics["average_learn_time"]))
+        print('Elapsed time to recall {0} patterns: {1:.2e} seconds'.format(cls.number_of_patterns,
+                                                                            cls.test_statistics["elapsed_recall_time"]))
+        print('Average recall time: {:.2e} seconds'.format(cls.test_statistics["average_recall_time"]))
+        print('Average learn-recall time ratio: {:.2e} '.format(cls.test_statistics["average_learn_time"] /
+                                                                cls.test_statistics["average_recall_time"]))
+        cls.node = None
+        cls.test_statistics = None
 
     def test_0_learn(self):
         """
         Test case 0: batch learning.
         """
-        elapsed = 0
-        print('Learning %d patterns.' % self.number_of_patterns)
+        elapsed_time = 0
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             output_steps = np.random.randint(low=0, high=2, size=self.output_dims, dtype=bool)
             t = time.time()
             self.layer.learn(pattern, output_steps)
-            elapsed += time.time() - t
-        print('Elapsed time %s s' % elapsed)
-        print('Average learn time %s s' % (elapsed / self.number_of_patterns))
+            elapsed_time += time.time() - t
+        self.test_statistics["elapsed_learn_time"] = elapsed_time
+        self.test_statistics["average_learn_time"] = elapsed_time / self.number_of_patterns
 
     def test_1_recall(self):
         """
         Test case 1: batch recalling.
         """
-        elapsed = 0
-        print('Recalling %d patterns.' % self.number_of_patterns)
+        elapsed_time = 0
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             t = time.time()
             values = self.layer.recall(pattern)
-            elapsed += time.time() - t
+            elapsed_time += time.time() - t
             self.layer.debug()
-        print('Elapsed time %s s' % elapsed)
-        print('Average recall time %s s' % (elapsed / self.number_of_patterns))
+        self.test_statistics["elapsed_recall_time"] = elapsed_time
+        self.test_statistics["average_recall_time"] = elapsed_time / self.number_of_patterns
 
 
 if __name__ == '__main__':

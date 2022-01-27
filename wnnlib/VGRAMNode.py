@@ -45,8 +45,7 @@ class VGRAMNode:
 
         # Debug options
         self.fig = None
-        self.ax1 = None
-        self.ax2 = None
+        self.axs = None
 
     def find_closest_pattern(self, input_pattern):
         """
@@ -137,22 +136,39 @@ class VGRAMNode:
                 self.valid_pairs[empty_entry_idx] = True
                 self.num_valid_pairs += int(1)
 
-    def debug(self):
+    def debug(self, input_pattern=None, output_value=None):
         """
         Debug node memory.
         """
         if self.fig is None:
-            self.fig, (self.ax1, self.ax2) = plt.subplots(2, 1)
-            self.ax1.axes.xaxis.set_visible(False)
-            self.ax1.axes.yaxis.set_visible(False)
-            self.ax2.axes.xaxis.set_visible(False)
-            self.ax2.axes.yaxis.set_visible(False)
-        self.ax1.clear()
-        self.ax1.imshow(self.input_patterns, cmap='gray',
-                        vmin=0, vmax=1, interpolation='nearest')
-        self.ax2.clear()
-        self.ax2.imshow(np.expand_dims(self.output_values, axis=0), cmap='gray',
-                        vmin=0, vmax=15, interpolation='nearest')
+            self.fig, self.axs = plt.subplots(2, 2, gridspec_kw={'width_ratios': [15, 1], 'height_ratios': [15, 1]})
+            self.axs[0, 0].axes.xaxis.set_visible(False)
+            self.axs[0, 0].axes.yaxis.set_visible(False)
+            self.axs[0, 1].axes.xaxis.set_visible(False)
+            self.axs[0, 1].axes.yaxis.set_visible(False)
+            self.axs[1, 0].axes.xaxis.set_visible(False)
+            self.axs[1, 0].axes.yaxis.set_visible(False)
+            self.axs[1, 1].axes.xaxis.set_visible(False)
+            self.axs[1, 1].axes.yaxis.set_visible(False)
+        # Show stored patterns
+        self.axs[0, 0].clear()
+        self.axs[0, 0].imshow(self.input_patterns, cmap='gray',
+                              vmin=0, vmax=1, interpolation='nearest', aspect='auto')
+        # Show stored output values
+        self.axs[0, 1].clear()
+        self.axs[0, 1].imshow(np.expand_dims(self.output_values, axis=1), cmap='gray',
+                              vmin=0, vmax=15, interpolation='nearest', aspect='auto')
+        # Show input pattern (if given)
+        self.axs[1, 0].clear()
+        if input_pattern is not None:
+            self.axs[1, 0].imshow(np.expand_dims(input_pattern, axis=0), cmap='gray',
+                                  vmin=0, vmax=1, interpolation='nearest', aspect='auto')
+        # Show output value (if given)
+        self.axs[1, 1].clear()
+        if output_value is not None:
+            self.axs[1, 1].imshow(output_value*np.ones((1, 1), order='C', dtype=int), cmap='gray',
+                                  vmin=0, vmax=15, interpolation='nearest', aspect='auto')
+        self.fig.tight_layout()
         plt.show(block=False)
         plt.pause(0.00001)
 
@@ -161,45 +177,71 @@ class TestVGRAMNode(unittest.TestCase):
     """
     Extends unittest.TestCase class to implement unit tests for the VGRAM class.
     """
-    number_of_patterns = 256
+    number_of_patterns = 512
     min_mem_size = 63
     max_mem_size = 64
     min_dist = 2
     max_dist = 8
     pattern_length = 16
-    node = VGRAMNode(pattern_length=pattern_length,
-                     min_mem_size=min_mem_size, max_mem_size=max_mem_size,
-                     min_dist=min_dist, max_dist=max_dist)
+    node = None
+    test_statistics = None
+
+    @classmethod
+    def setUpClass(cls):
+        """
+        Set up method: configure parameters and create a VGRAM node.
+        """
+        cls.node = VGRAMNode(pattern_length=cls.pattern_length,
+                             min_mem_size=cls.min_mem_size, max_mem_size=cls.max_mem_size,
+                             min_dist=cls.min_dist, max_dist=cls.max_dist)
+        cls.test_statistics = {"average_recall_time": 0.0,
+                               "average_learn_time": 0.0,
+                               "elapsed_recall_time": 0.0,
+                               "elapsed_learn_time": 0.0}
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Tear down method: print test statistics.
+        """
+        print('Elapsed time to learn {0} patterns: {1:.2e} seconds'.format(cls.number_of_patterns,
+                                                                           cls.test_statistics["elapsed_learn_time"]))
+        print('Average learn time: {:.2e} seconds'.format(cls.test_statistics["average_learn_time"]))
+        print('Elapsed time to recall {0} patterns: {1:.2e} seconds'.format(cls.number_of_patterns,
+                                                                            cls.test_statistics["elapsed_recall_time"]))
+        print('Average recall time: {:.2e} seconds'.format(cls.test_statistics["average_recall_time"]))
+        print('Average learn-recall time ratio: {:.2e} '.format(cls.test_statistics["average_learn_time"] /
+                                                                cls.test_statistics["average_recall_time"]))
+        cls.node = None
+        cls.test_statistics = None
 
     def test_0_learn(self):
         """
         Test case 0: batch learning.
         """
-        elapsed = 0
-        print('Learning %d patterns.' % self.number_of_patterns)
+        elapsed_time = 0.0
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             t = time.time()
             self.node.learn(pattern)
-            elapsed += time.time() - t
-            self.node.debug()
-        print('Elapsed time %s s' % elapsed)
-        print('Average learn time %s s' % (elapsed / self.number_of_patterns))
+            elapsed_time += time.time() - t
+            self.node.debug(pattern)
+        self.test_statistics["elapsed_learn_time"] = elapsed_time
+        self.test_statistics["average_learn_time"] = elapsed_time / self.number_of_patterns
 
     def test_1_recall(self):
         """
         Test case 1: batch recalling.
         """
-        elapsed = 0
-        print('Recalling %d patterns.' % self.number_of_patterns)
+        elapsed_time = 0
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             t = time.time()
             value = self.node.recall(pattern)
-            print(value)
-            elapsed += time.time() - t
-        print('Elapsed time %s s' % elapsed)
-        print('Average recall time %s s' % (elapsed / self.number_of_patterns))
+            self.node.debug(pattern, value)
+            elapsed_time += time.time() - t
+        self.test_statistics["elapsed_recall_time"] = elapsed_time
+        self.test_statistics["average_recall_time"] = elapsed_time / self.number_of_patterns
 
 
 if __name__ == '__main__':
