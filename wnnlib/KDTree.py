@@ -358,29 +358,140 @@ def exec_test(tree, data, style):
     print('Root mean squared decoding error %s s' % (np.sqrt(acc_error2 / i)))
 
 
+def exec_codec_test(tree, data, statistics, style):
+    """
+    Execute a test.
+
+    Parameters:
+        tree (object): kd-tree.
+        data (double[]): Data points.
+        statistics (dict[]) : Test statistics
+        style (int): Tree style (0: rectangles, 1: sectors)
+    """
+    np.random.seed(0)
+    # Encoding
+    number_of_points = data.size
+    elapsed_time = 0
+    cdata = []
+    for point in data:
+        t = time.time()
+        c = tree.encode(point=point)
+        elapsed_time += time.time() - t
+        tree.debug(style=style)
+        cdata.append(c)
+    statistics["number_of_encoding_points"] = number_of_points
+    statistics["elapsed_encoding_time"] = elapsed_time
+    statistics["average_encoding_time"] = elapsed_time / number_of_points
+
+    # Decoding
+    elapsed_time = 0
+    i = 0
+    acc_error2 = 0
+    for code in cdata:
+        x = data[i, :]
+        t = time.time()
+        d = tree.decode(code=code)
+        elapsed_time += time.time() - t
+        acc_error2 += np.transpose(x - d) * (x - d)
+        i += 1
+    statistics["number_of_decoding_points"] = number_of_points
+    statistics["elapsed_decoding_time"] = elapsed_time
+    statistics["average_decoding_time"] = elapsed_time / number_of_points
+    statistics["rms_decoding_error"] = np.sqrt(acc_error2 / i)
+
+
 class TestKDTree(unittest.TestCase):
     """
     Extends unittest.TestCase class to implement unit tests for the KDTree class.
     """
-    def test_0_codec(self):
+
+    test_0_tree = None
+    test_0_data = None
+    test_0_statistics = None
+    test_1_tree = None
+    test_1_data = None
+    test_1_statistics = None
+
+    @classmethod
+    def setUpClass(cls):
         """
-        Test case 0: batch encoding/decoding.
+        Set up method: configure parameters and create kd-trees.
         """
         np.random.seed(0)
-        tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01,
-                      min_bounds=[0, 0], max_bounds=[10, 10])
-        data = np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=256)
-        exec_test(tree, data, 0)
+        cls.test_0_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01,
+                                 min_bounds=[0, 0], max_bounds=[10, 10])
+        cls.test_0_data = np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=256)
+        cls.test_0_statistics = {"number_of_encoding_points": 0.0,
+                                 "elapsed_encoding_time": 0.0,
+                                 "average_encoding_time": 0.0,
+                                 "number_of_decoding_points": 0.0,
+                                 "elapsed_decoding_time": 0.0,
+                                 "average_decoding_time": 0.0,
+                                 "rms_decoding_error": 0.0}
+        cls.test_1_tree = KDTree(max_depth=16, learning_rate=0.1, min_splitting_volume=0.00001,
+                                 min_bounds=[0, -60], max_bounds=[20, 60])
+        cls.test_1_data = np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256)
+        cls.test_1_statistics = {"number_of_encoding_points": 0.0,
+                                 "elapsed_encoding_time": 0.0,
+                                 "average_encoding_time": 0.0,
+                                 "number_of_decoding_points": 0.0,
+                                 "elapsed_decoding_time": 0.0,
+                                 "average_decoding_time": 0.0,
+                                 "rms_decoding_error": 0.0}
+
+    @classmethod
+    def tearDownClass(cls):
+        """
+        Tear down method: print test statistics.
+        """
+        # Cartesian data
+        print("Encoding/decoding Cartesian data:")
+        print('Elapsed time to encode {0} points: {1:.2e} seconds'.format(
+            cls.test_0_statistics["number_of_encoding_points"],
+            cls.test_0_statistics["elapsed_encoding_time"]))
+        print('Average encoding time: {:.2e} seconds'.format(cls.test_0_statistics["average_encoding_time"]))
+
+        print('Elapsed time to decode {0} points: {1:.2e} seconds'.format(
+            cls.test_0_statistics["number_of_decoding_points"],
+            cls.test_0_statistics["elapsed_decoding_time"]))
+        print('Average decoding time: {:.2e} seconds'.format(cls.test_0_statistics["average_decoding_time"]))
+        print('Root mean squared decoding error (x-axis): {:.2e}'.format(cls.test_0_statistics["rms_decoding_error"][0]))
+        print('Root mean squared decoding error (y-axis): {:.2e}'.format(cls.test_0_statistics["rms_decoding_error"][1]))
+
+        # Polar data
+        print("Encoding/decoding polar data:")
+        print('Elapsed time to encode {0} points: {1:.2e} seconds'.format(
+            cls.test_1_statistics["number_of_encoding_points"],
+            cls.test_1_statistics["elapsed_encoding_time"]))
+        print('Average encoding time: {:.2e} seconds'.format(cls.test_1_statistics["average_encoding_time"]))
+
+        print('Elapsed time to decode {0} points: {1:.2e} seconds'.format(
+            cls.test_1_statistics["number_of_decoding_points"],
+            cls.test_1_statistics["elapsed_decoding_time"]))
+        print('Average decoding time: {:.2e} seconds'.format(cls.test_1_statistics["average_decoding_time"]))
+        print('Root mean squared decoding error (range): {:.2e}'.format(cls.test_1_statistics["rms_decoding_error"][0]))
+        print('Root mean squared decoding error (azimuth): {:.2e}'.format(cls.test_1_statistics["rms_decoding_error"][1]))
+
+        cls.test_0_tree = None
+        cls.test_0_data = None
+        cls.test_0_statistics = None
+        cls.test_1_tree = None
+        cls.test_1_data = None
+        cls.test_1_statistics = None
+
+    def test_0_codec(self):
+        """
+        Test case 0: batch encoding/decoding Cartesian data.
+        """
+        np.random.seed(0)
+        exec_codec_test(self.test_0_tree, self.test_0_data, self.test_0_statistics, style=0)
 
     def test_1_codec(self):
         """
-        Test case 1: batch encoding/decoding.
+        Test case 1: batch encoding/decoding polar data.
         """
         np.random.seed(0)
-        tree = KDTree(max_depth=16, learning_rate=0.1, min_splitting_volume=0.00001,
-                      min_bounds=[0, -60], max_bounds=[20, 60])
-        data = np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256)
-        exec_test(tree, data, 1)
+        exec_codec_test(self.test_1_tree, self.test_1_data, self.test_1_statistics, style=1)
 
 
 if __name__ == '__main__':
