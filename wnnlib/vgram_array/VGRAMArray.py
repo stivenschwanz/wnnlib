@@ -3,12 +3,12 @@ import numpy as np
 from matplotlib import pyplot as plt
 import unittest
 import time
-from wnnlib import VGRAMNode
+from wnnlib.vgram_array import VGRAMNode
 
 
-class VGRAMLayer:
+class VGRAMArray:
     """
-    This class defines a layer of Virtual Generalized Random Access Memory (VGRAM) nodes.
+    This class defines an array of Virtual Generalized Random Access Memory (VGRAM) nodes.
     """
     def __init__(self, output_dims, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist):
         """
@@ -22,7 +22,7 @@ class VGRAMLayer:
                 min_dist (int): Minimum Hamming distance.
                 max_dist (int): Maximum Hamming distance.
         """
-        # Initialize layer nodes
+        # Initialize array nodes
         self.nodes = np.empty(output_dims, dtype=object)
         it = np.nditer(self.nodes, flags=['multi_index', 'refs_ok'], op_flags=['readwrite'])
         while not it.finished:
@@ -31,7 +31,7 @@ class VGRAMLayer:
                                                              min_dist=min_dist, max_dist=max_dist)
             it.iternext()
 
-        # Initialize layer outputs
+        # Initialize array outputs
         self.output_values = np.zeros(output_dims, dtype=int)
 
         # Debug options
@@ -70,7 +70,7 @@ class VGRAMLayer:
 
     def debug(self):
         """
-        Debug layer outputs.
+        Debug array outputs.
         """
         if self.fig is None:
             self.fig, self.ax = plt.subplots()
@@ -85,9 +85,9 @@ class VGRAMLayer:
         plt.pause(0.00001)
 
 
-class TestVGRAMLayer(unittest.TestCase):
+class TestVGRAMArray(unittest.TestCase):
     """
-    Extends unittest.TestCase class to implement unit tests for the VGRAMLayer class.
+    Extends unittest.TestCase class to implement unit tests for the VGRAMArray class.
     """
     output_dims = (16, 16)
     number_of_patterns = 256
@@ -96,7 +96,7 @@ class TestVGRAMLayer(unittest.TestCase):
     min_dist = 2
     max_dist = 8
     pattern_length = 16
-    layer = None
+    array = None
     test_statistics = None
 
     @classmethod
@@ -104,7 +104,7 @@ class TestVGRAMLayer(unittest.TestCase):
         """
         Set up method: configure parameters and create a VGRAM node.
         """
-        cls.layer = VGRAMLayer(output_dims=cls.output_dims, pattern_length=cls.pattern_length,
+        cls.array = VGRAMArray(output_dims=cls.output_dims, pattern_length=cls.pattern_length,
                                min_mem_size=cls.min_mem_size, max_mem_size=cls.max_mem_size,
                                min_dist=cls.min_dist, max_dist=cls.max_dist)
         cls.test_statistics = {"average_recall_time": 0.0,
@@ -137,7 +137,7 @@ class TestVGRAMLayer(unittest.TestCase):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             output_steps = np.random.randint(low=0, high=2, size=self.output_dims, dtype=bool)
             t = time.time()
-            self.layer.learn(pattern, output_steps)
+            self.array.learn(pattern, output_steps)
             elapsed_time += time.time() - t
         self.test_statistics["elapsed_learn_time"] = elapsed_time
         self.test_statistics["average_learn_time"] = elapsed_time / self.number_of_patterns
@@ -150,9 +150,9 @@ class TestVGRAMLayer(unittest.TestCase):
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             t = time.time()
-            values = self.layer.recall(pattern)
+            values = self.array.recall(pattern)
             elapsed_time += time.time() - t
-            self.layer.debug()
+            self.array.debug()
         self.test_statistics["elapsed_recall_time"] = elapsed_time
         self.test_statistics["average_recall_time"] = elapsed_time / self.number_of_patterns
 
