@@ -52,13 +52,13 @@ function blkStruct = slblocks
 % Name of the subsystem which will show up in the Simulink Blocksets
 % and Toolboxes subsystem.
 %
-blkStruct.Name = ['WNN' sprintf('\n') 'library'];
+blkStruct.Name = 'Weightless Neural Networks Toolbox';
 
 %
 % The function that will be called when the user double-clicks on
 % this icon.
 %
-blkStruct.OpenFcn = 'wnnlib';
+blkStruct.OpenFcn = '';
 
 %
 % The argument to be set as the Mask Display for the subsystem.  You
@@ -74,34 +74,11 @@ blkStruct.MaskDisplay = '';
 % Simulink Extras block library.
 %
 Browser(1).Library = 'wnnlib';
-Browser(1).Name    = 'Weightless Neural Networks';
+Browser(1).Name    = 'Weightless Neural Networks Toolbox';
 Browser(1).IsFlat  = 0;% Is this library "flat" (i.e. no subsystems)?
-
 
 blkStruct.Browser = Browser;
 clear Browser;
-
-%
-% Define information about Signal Viewers
-%
-Viewer(1).Library = 'simviewers';
-Viewer(1).Name    = 'Simulink';
-
-blkStruct.Viewer = Viewer;
-clear Viewer;
-
-%
-% Define information about Signal Generators
-%
-Generator(1).Library = 'simgens';
-Generator(1).Name    = 'Simulink';
-
-blkStruct.Generator = Generator;
-clear Generator;
-
-% Define information for model updater
-blkStruct.ModelUpdaterMethods.fhDetermineBrokenLinks = @UpdateSimulinkBrokenLinksMappingHelper;
-blkStruct.ModelUpdaterMethods.fhSeparatedChecks = @UpdateSimulinkBlocksHelper;
 
 % End of slblocks
 
