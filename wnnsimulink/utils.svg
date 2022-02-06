@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="UTF-8" standalone="no"?>
+<!DOCTYPE svg PUBLIC "-//W3C//DTD SVG 1.0//EN" "http://www.w3.org/TR/2001/PR-SVG-20010719/DTD/svg10.dtd">
+<svg width="6cm" height="6cm" viewBox="148 68 113 113" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink">
+  <g>
+    <ellipse style="fill: #ffffff" cx="205" cy="125" rx="55" ry="55"/>
+    <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="205" cy="125" rx="55" ry="55"/>
+    <text font-size="33.8662" style="fill: #000000;text-anchor:middle;font-family:sans-serif;font-style:normal;font-weight:normal" x="205" y="137.683">
+      <tspan x="205" y="137.683"></tspan>
+    </text>
+  </g>
+  <g>
+    <g>
+      <ellipse style="fill: #000000" cx="205" cy="125" rx="5" ry="5"/>
+      <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="205" cy="125" rx="5" ry="5"/>
+      <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="205" cy="125" rx="5" ry="5"/>
+    </g>
+    <g>
+      <ellipse style="fill: #000000" cx="225" cy="125" rx="5" ry="5"/>
+      <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="225" cy="125" rx="5" ry="5"/>
+      <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="225" cy="125" rx="5" ry="5"/>
+    </g>
+    <g>
+      <ellipse style="fill: #000000" cx="185" cy="125" rx="5" ry="5"/>
+      <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="185" cy="125" rx="5" ry="5"/>
+      <ellipse style="fill: none; fill-opacity:0; stroke-width: 2; stroke: #000000" cx="185" cy="125" rx="5" ry="5"/>
+    </g>
+  </g>
+</svg>
