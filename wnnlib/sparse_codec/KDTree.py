@@ -207,8 +207,8 @@ class KDTree:
             return self.right_child.decode(code)
         else:
             # return np.append(self.min_bounds, self.max_bounds)
-            # return 0.5*(self.min_bounds+self.max_bounds)
-            return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
+            return 0.5*(self.min_bounds+self.max_bounds)
+            # return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
 
     def draw_rectangle(self):
         """
@@ -420,7 +420,9 @@ class TestKDTree(unittest.TestCase):
         np.random.seed(0)
         cls.test_0_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01,
                                  min_bounds=[0, 0], max_bounds=[10, 10])
-        cls.test_0_data = np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=256)
+        cls.test_0_data = np.append(np.random.uniform(low=0, high=10, size=[256, 2]),
+                                    np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=256),
+                                    axis=0)
         cls.test_0_statistics = {"number_of_encoding_points": 0.0,
                                  "elapsed_encoding_time": 0.0,
                                  "average_encoding_time": 0.0,
@@ -430,7 +432,9 @@ class TestKDTree(unittest.TestCase):
                                  "rms_decoding_error": 0.0}
         cls.test_1_tree = KDTree(max_depth=16, learning_rate=0.1, min_splitting_volume=0.00001,
                                  min_bounds=[0, -60], max_bounds=[20, 60])
-        cls.test_1_data = np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256)
+        cls.test_1_data =  np.append(np.random.uniform(low=[0, -60], high=[20, 60], size=[256, 2]),
+                                     np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256),
+                                     axis=0)
         cls.test_1_statistics = {"number_of_encoding_points": 0.0,
                                  "elapsed_encoding_time": 0.0,
                                  "average_encoding_time": 0.0,
