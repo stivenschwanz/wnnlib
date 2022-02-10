@@ -135,7 +135,7 @@ class TestVGRAMArray(unittest.TestCase):
         elapsed_time = 0
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
-            output_steps = np.random.randint(low=0, high=2, size=self.output_dims, dtype=bool)
+            output_steps = np.random.randint(low=0, high=2, size=self.output_dims, dtype=int)
             t = time.time()
             self.array.learn(pattern, output_steps)
             elapsed_time += time.time() - t

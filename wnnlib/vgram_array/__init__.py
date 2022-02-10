@@ -15,9 +15,12 @@ def create(array_id, output_dims, pattern_length, min_mem_size, max_mem_size, mi
         min_dist (int): Minimum Hamming distance.
         max_dist (int): Maximum Hamming distance.
     """
-    globals.g_vgram_arrays[array_id] = VGRAMArray.VGRAMArray(output_dims=output_dims, pattern_length=pattern_length,
-                                                             min_mem_size=min_mem_size, max_mem_size=max_mem_size,
-                                                             min_dist=min_dist, max_dist=max_dist)
+    globals.g_vgram_arrays[array_id] = VGRAMArray.VGRAMArray(output_dims=tuple(map(int, output_dims)),
+                                                             pattern_length=int(pattern_length),
+                                                             min_mem_size=int(min_mem_size),
+                                                             max_mem_size=int(max_mem_size),
+                                                             min_dist=int(min_dist),
+                                                             max_dist=int(max_dist))
 
 
 def delete(array_id):
@@ -80,4 +83,4 @@ def learn(array_id, input_pattern, output_steps):
         input_pattern (bool[]): Input pattern.
         output_steps (int[]): Output steps.
     """
-    return globals.g_vgram_arrays[array_id].learn(input_pattern, output_steps)
+    globals.g_vgram_arrays[array_id].learn(input_pattern, output_steps)
