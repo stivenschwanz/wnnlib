@@ -38,6 +38,22 @@ class VGRAMArray:
         self.fig = None
         self.ax = None
 
+    def __del__(self):
+        """
+        Clean everything up.
+        """
+        if self.fig is not None:
+            self.ax.clear()
+            plt.close(self.fig)
+            self.ax = None
+            self.fig = None
+
+        if self.nodes is not None:
+            self.nodes = None
+
+        if self.output_values is not None:
+            self.output_values = None
+
     def recall(self, input_pattern):
         """
         Recall the output value associated with the closest stored pattern to the input pattern.
@@ -76,6 +92,8 @@ class VGRAMArray:
             self.fig, self.ax = plt.subplots()
             self.ax.axes.xaxis.set_visible(False)
             self.ax.axes.yaxis.set_visible(False)
+            win = plt.gcf().canvas.manager.window
+            win.overrideredirect(1)  # draws a completely frameless window
 
         self.ax.clear()
         self.ax.imshow(self.output_values, cmap='gray', vmin=0, vmax=15, interpolation='nearest', aspect='auto')

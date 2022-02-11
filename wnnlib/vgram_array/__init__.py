@@ -15,6 +15,10 @@ def create(array_id, output_dims, pattern_length, min_mem_size, max_mem_size, mi
         min_dist (int): Minimum Hamming distance.
         max_dist (int): Maximum Hamming distance.
     """
+    # Sanity check: check whether the array already exists and clean up
+    if globals.g_vgram_arrays[array_id] is not None:
+        globals.g_vgram_arrays.pop(array_id)
+
     globals.g_vgram_arrays[array_id] = VGRAMArray.VGRAMArray(output_dims=tuple(map(int, output_dims)),
                                                              pattern_length=int(pattern_length),
                                                              min_mem_size=int(min_mem_size),
