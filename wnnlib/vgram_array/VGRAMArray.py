@@ -12,15 +12,15 @@ class VGRAMArray:
     """
     def __init__(self, output_dims, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist):
         """
-            Initialize an empty VGRAM node.
+        Initialize an empty VGRAM node.
 
-            Parameters:
-                output_dims (int, int): Output dimensions.
-                pattern_length (int): Length of the stored patterns.
-                min_mem_size (int): Minimum memory size.
-                max_mem_size (int): Maximum memory size.
-                min_dist (int): Minimum Hamming distance.
-                max_dist (int): Maximum Hamming distance.
+        Parameters:
+            output_dims (int, int): Output dimensions.
+            pattern_length (int): Length of the stored patterns.
+            min_mem_size (int): Minimum memory size.
+            max_mem_size (int): Maximum memory size.
+            min_dist (int): Minimum Hamming distance.
+            max_dist (int): Maximum Hamming distance.
         """
         # Initialize array nodes
         self.nodes = np.empty(output_dims, dtype=object)
@@ -40,11 +40,18 @@ class VGRAMArray:
 
     def __del__(self):
         """
+        Delete method.
+        """
+        self.cleanup()
+
+    def cleanup(self):
+        """
         Clean everything up.
         """
         if self.fig is not None:
             self.ax.clear()
             plt.close(self.fig)
+            self.fig.canvas.manager.window.destroy()
             self.ax = None
             self.fig = None
 
@@ -92,7 +99,8 @@ class VGRAMArray:
             self.fig, self.ax = plt.subplots()
             self.ax.axes.xaxis.set_visible(False)
             self.ax.axes.yaxis.set_visible(False)
-            win = plt.gcf().canvas.manager.window
+            # self.fig.canvas.mpl_connect('close_event', lambda _: self.fig.canvas.manager.window.destroy())
+            win = self.fig.canvas.manager.window
             win.overrideredirect(1)  # draws a completely frameless window
 
         self.ax.clear()
