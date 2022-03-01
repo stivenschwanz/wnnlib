@@ -2,7 +2,7 @@ import unittest
 from abc import ABC, abstractmethod
 from numpy import random
 import numpy as np
-from wnnlib import BitUtils
+from wnnlib.BitUtils import BitUtils
 
 
 class SparseCodec(ABC):
