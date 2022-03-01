@@ -5,9 +5,11 @@ from matplotlib.patches import Wedge, Rectangle
 from matplotlib.collections import PatchCollection
 from matplotlib import pyplot as plt
 import time
+from wnnlib.sparse_codec.SparseCodec import SparseCodec
+from wnnlib.BitUtils import BitUtils
 
 
-class KDTree:
+class KDTree(SparseCodec):
     """
     This class defines a self-adapting kd-tree which incrementally build an encoding function directly from data.
     More precisely, as we travel from the root node to the corresponding leaf to encode a data point, we build a binary
@@ -15,7 +17,8 @@ class KDTree:
     we adjust the splitting point at each visited node using a convex combination rule based on a given learning rate
     between the current splitting point and the data point at the corresponding node dimension.
     """
-    def __init__(self, max_depth, learning_rate, min_splitting_volume, min_bounds, max_bounds, depth=0):
+    def __init__(self, max_depth, learning_rate, min_splitting_volume,
+                 min_bounds, max_bounds, depth=0, sparse_vectors_file=None):
         """
         Initialize an empty kd-tree node
 
@@ -35,7 +38,7 @@ class KDTree:
         # Check if the minimum splitting volume is strictly positive
         assert min_splitting_volume > 0
 
-        # Check if the depth is between 0 an the maximum depth
+        # Check if the depth is between 0 and the maximum depth
         assert 0 <= depth <= max_depth
 
         # Initialize constant members
@@ -72,6 +75,9 @@ class KDTree:
         # Debug options
         self.fig = None
         self.ax = None
+
+        if sparse_vectors_file is not None:
+            super().__init__(sparse_vectors_file)
 
     def update_child_bounds(self):
         """
@@ -126,7 +132,7 @@ class KDTree:
             self.right_child.sizes = right_child_sizes
             self.right_child.volume = right_child_volume
 
-    def encode(self, point):
+    def encode_point_into_binary_sequence(self, point):
         """
         Encode a k-dimensional point as a max_depth-length binary sequence using the kd-tree.
 
@@ -163,22 +169,40 @@ class KDTree:
         self.update_child_bounds()
 
         if self.split_point is None:
-            return np.random.randint(low=0, high=2, size=self.max_depth - self.depth)
+            return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
 
         if dim_value < self.split_point:
             if self.left_child is not None:
-                return np.append([0], self.left_child.encode(point))
+                return np.append(self.left_child.encode_point_into_binary_sequence(point), [np.uint8(0)])
             else:
-                return np.append([0], np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1))
+                return np.append(np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8), [np.uint8(0)])
         elif dim_value > self.split_point:
             if self.right_child is not None:
-                return np.append([1], self.right_child.encode(point))
+                return np.append(self.right_child.encode_point_into_binary_sequence(point), [np.uint8(1)])
             else:
-                return np.append([1], np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1))
+                return np.append(np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8), [np.uint8(1)])
         else:
-            return np.random.randint(low=0, high=2, size=self.max_depth-self.depth)
+            return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
 
-    def decode(self, code):
+    def dense_vector_to_sparse_vector_index(self, dense_vector):
+        """
+        Compute the index of the sparse vector corresponding to a given dense vector.
+
+        Parameters:
+            dense_vector (float[]): an array lying in a compact feature/observation space.
+
+        Returns:
+            (int): Sparse vector index.
+        """
+        # Encode the given k-dimensional point into a binary sequence
+        code = self.encode_point_into_binary_sequence(point=dense_vector)
+
+        # Pack the code into a unique index
+        sparse_vector_index = BitUtils.binary_array_to_integer(np.uint8(code))
+
+        return sparse_vector_index
+
+    def decode_binary_sequence_into_point(self, code):
         """
         Decode a sparse representation as a k-dimensional point using the kd-tree.
 
@@ -202,13 +226,32 @@ class KDTree:
         assert depth_code in [0, 1]
 
         if depth_code == 0 and self.left_child is not None:
-            return self.left_child.decode(code)
+            return self.left_child.decode_binary_sequence_into_point(code)
         elif depth_code == 1 and self.right_child is not None:
-            return self.right_child.decode(code)
+            return self.right_child.decode_binary_sequence_into_point(code)
         else:
             # return np.append(self.min_bounds, self.max_bounds)
             return 0.5*(self.min_bounds+self.max_bounds)
             # return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
+
+    def sparse_vector_index_to_dense_vector(self, sparse_vector_index):
+        """
+        Compute the dense vector corresponding to a given sparse vector index.
+
+        Parameters:
+            sparse_vector_index (int): Index of the sparse vector.
+
+        Returns:
+            (float[]): Array lying in a compact feature/observation space.
+        """
+
+        # Unpack the index into a unique code
+        code = BitUtils.integer_to_binary_array(sparse_vector_index, self.max_depth)
+
+        # Decode the given binary sequence into a k-dimensional point
+        point = self.decode_binary_sequence_into_point(code)
+
+        return point
 
     def draw_rectangle(self):
         """
@@ -328,7 +371,7 @@ def exec_test(tree, data, style):
         print(i)
         print(point)
         t = time.time()
-        c = tree.encode(point=point)
+        c = tree.encode(dense_vector=point)
         elapsed += time.time() - t
         tree.debug(style=style)
         print(c)
@@ -348,7 +391,7 @@ def exec_test(tree, data, style):
         print(x)
         print(code)
         t = time.time()
-        d = tree.decode(code=code)
+        d = tree.decode(sparse_vector=code)
         elapsed += time.time() - t
         print(d)
         acc_error2 += np.transpose(x - d) * (x - d)
@@ -370,12 +413,12 @@ def exec_codec_test(tree, data, statistics, style):
     """
     np.random.seed(0)
     # Encoding
-    number_of_points = data.size
+    number_of_points = data.size/2
     elapsed_time = 0
     cdata = []
     for point in data:
         t = time.time()
-        c = tree.encode(point=point)
+        c = tree.encode(dense_vector=point)
         elapsed_time += time.time() - t
         tree.debug(style=style)
         cdata.append(c)
@@ -390,7 +433,7 @@ def exec_codec_test(tree, data, statistics, style):
     for code in cdata:
         x = data[i, :]
         t = time.time()
-        d = tree.decode(code=code)
+        d = tree.decode(sparse_vector=code)
         elapsed_time += time.time() - t
         acc_error2 += np.transpose(x - d) * (x - d)
         i += 1
@@ -419,7 +462,8 @@ class TestKDTree(unittest.TestCase):
         """
         np.random.seed(0)
         cls.test_0_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01,
-                                 min_bounds=[0, 0], max_bounds=[10, 10])
+                                 min_bounds=[0, 0], max_bounds=[10, 10],
+                                 sparse_vectors_file="../../wnndata/64k_sparse_vectors_seed_0.npz")
         cls.test_0_data = np.append(np.random.uniform(low=0, high=10, size=[256, 2]),
                                     np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=256),
                                     axis=0)
@@ -431,10 +475,11 @@ class TestKDTree(unittest.TestCase):
                                  "average_decoding_time": 0.0,
                                  "rms_decoding_error": 0.0}
         cls.test_1_tree = KDTree(max_depth=16, learning_rate=0.1, min_splitting_volume=0.00001,
-                                 min_bounds=[0, -60], max_bounds=[20, 60])
-        cls.test_1_data =  np.append(np.random.uniform(low=[0, -60], high=[20, 60], size=[256, 2]),
-                                     np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256),
-                                     axis=0)
+                                 min_bounds=[0, -60], max_bounds=[20, 60],
+                                 sparse_vectors_file="../../wnndata/64k_sparse_vectors_seed_0.npz")
+        cls.test_1_data = np.append(np.random.uniform(low=[0, -60], high=[20, 60], size=[256, 2]),
+                                    np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256),
+                                    axis=0)
         cls.test_1_statistics = {"number_of_encoding_points": 0.0,
                                  "elapsed_encoding_time": 0.0,
                                  "average_encoding_time": 0.0,

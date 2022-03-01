@@ -38,7 +38,7 @@ class VGRAMNode:
 
         # Initialize memory
         self.input_patterns = np.zeros((max_mem_size, pattern_length), order='C', dtype=bool)
-        self.output_values = np.zeros(max_mem_size, order='C', dtype=int)
+        self.output_values = np.zeros(max_mem_size, order='C', dtype=float)
         self.valid_pairs = np.zeros(max_mem_size, order='C', dtype=bool)
         self.num_valid_pairs = int(0)
         self.all_indexes = np.array(range(0, self.max_mem_size))
@@ -61,6 +61,7 @@ class VGRAMNode:
         closest_pattern_idx = None
         valid_indexes = self.all_indexes[self.valid_pairs]
         for idx in valid_indexes:
+            # Efficiently compute the Hamming distance between the patterns
             dist = np.count_nonzero(self.input_patterns[idx, :] != input_pattern)
             # Randomly update the closest pattern index if the stored pattern is at the minimum distance
             if dist < closest_pattern_dist or dist == closest_pattern_dist and np.random.randint(low=0, high=2) == 1:
@@ -77,10 +78,10 @@ class VGRAMNode:
             input_pattern (bool[]): Input pattern.
 
         Returns:
-            (int): Output value.
+            (float): Output value.
         """
         # Default to zero
-        output_value = int(0)
+        output_value = float(0)
 
         # Find the closest stored pattern
         [closest_pattern_dist, closest_pattern_idx] = self.find_closest_pattern(input_pattern)
@@ -91,13 +92,13 @@ class VGRAMNode:
 
         return output_value
 
-    def learn(self, input_pattern, output_step=int(1)):
+    def learn(self, input_pattern, output_step=float(1)):
         """
-        Update the stored value associated with the closest input patter to an input pattern.
+        Update the stored value associated with the closest input pattern to an input pattern.
 
         Parameters:
             input_pattern (bool[]): Input pattern.
-            output_step (int): Output step.
+            output_step (float): Output step.
         """
         # Skip learning
         if output_step == 0:
@@ -111,14 +112,14 @@ class VGRAMNode:
             max_pruning = self.max_mem_size - self.min_mem_size
             prune_indexes = min_indexes[:max_pruning]
             self.input_patterns[prune_indexes, :] = np.zeros(self.pattern_length, order='C', dtype=bool)
-            self.output_values[prune_indexes] = int(0)
+            self.output_values[prune_indexes] = float(0)
             self.valid_pairs[prune_indexes] = False
             self.num_valid_pairs -= len(prune_indexes)
 
         if self.num_valid_pairs == np.uint(0):
             # Store the first input - output pair
             self.input_patterns[0, :] = input_pattern
-            self.output_values[0] = int(1)
+            self.output_values[0] = float(1)
             self.valid_pairs[0] = True
             self.num_valid_pairs = int(1)
         else:
@@ -127,12 +128,12 @@ class VGRAMNode:
 
             if closest_pattern_dist <= self.min_dist:
                 # Update an existing input - output pair
-                self.output_values[closest_pattern_idx] += int(output_step)
+                self.output_values[closest_pattern_idx] += float(output_step)
             else:
                 # Store a new input - output pair
                 empty_entry_idx = np.argmin(self.valid_pairs)
                 self.input_patterns[empty_entry_idx, :] = input_pattern
-                self.output_values[empty_entry_idx] = int(output_step)
+                self.output_values[empty_entry_idx] = float(output_step)
                 self.valid_pairs[empty_entry_idx] = True
                 self.num_valid_pairs += int(1)
 
@@ -166,7 +167,7 @@ class VGRAMNode:
         # Show output value (if given)
         self.axs[1, 1].clear()
         if output_value is not None:
-            self.axs[1, 1].imshow(output_value*np.ones((1, 1), order='C', dtype=int), cmap='gray',
+            self.axs[1, 1].imshow(output_value*np.ones((1, 1), order='C', dtype=float), cmap='gray',
                                   vmin=0, vmax=15, interpolation='nearest', aspect='auto')
         self.fig.tight_layout()
         plt.show(block=False)

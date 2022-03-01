@@ -66,24 +66,84 @@ def test_data_encoding(tree, data):
     plt.show()
 
 
+def hamming_distance(a, b):
+    return np.sum(np.bitwise_xor(a, b))
+
+
 if __name__ == '__main__':
     """Example usage"""
 
     # tree = KDTree(max_depth=16, learning_rate=0.1, min_splitting_volume=0.00001, min_bounds=[0, -60], max_bounds=[20, 60])
-    tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01, min_bounds=[0, 0],
-                  max_bounds=[10, 10])
+    # tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01, min_bounds=[0, 0], max_bounds=[10, 10])
 
     # Create a set of structured random points in two dimensions
     np.random.seed(0)
 
     # data = np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=10)
-    data = np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=1000)
+    #data = np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=1000)
 
-    test_data_encoding(tree, data)
+    #test_data_encoding(tree, data)
 
-    data = np.random.uniform(low=0, high=10, size=[100, 2])
+    #data = np.random.uniform(low=0, high=10, size=[100, 2])
 
-    test_data_encoding(tree, data)
+    #test_data_encoding(tree, data)
+
+    # a = np.random.randint(low=0, high=2, size=2048, dtype=np.uint8)
+    # b = np.random.randint(low=0, high=2, size=2048, dtype=np.uint8)
+    # print("a %s", a)
+    # print("b %s", b)
+    # print("hamming distance %s", hamming_distance(a, b))
+
+    L = 2048
+    N = 64 * 1024
+    A = 64
+    B = 96
+    pa = A/L
+    # c = np.random.binomial(n=1, p=pa, size=L)
+    # d = np.random.binomial(n=1, p=pa, size=L)
+    # print("c %s", c)
+    # print("d %s", d)
+    # print("sum c %s", np.sum(c))
+    # print("sum d %s", np.sum(d))
+    # print("hamming distance %s", hamming_distance(c, d))
+
+    omega = np.zeros((N, L), order='C', dtype=np.uint8)
+
+    n = 0
+    while n < N:
+        u = np.random.binomial(n=1, p=pa, size=L)
+        if np.sum(u) > A:
+            continue
+
+        min_dist = np.inf
+        append_flag = True
+        m = 0
+        while m < n:
+            v = omega[m, :]
+            m += 1
+            dist = hamming_distance(u, v)
+
+            if dist < min_dist:
+                min_dist = dist
+
+            if dist < B:
+                append_flag = False
+                break
+
+        if append_flag:
+            #print("sum u %s", np.sum(u))
+            #print("min dist u %s", min_dist)
+            omega[n, :] = u
+            print(n)
+            n += 1
+
+    np.savez("omega.npz", omega)
+    npz_file = np.load("omega.npz")
+    omega = npz_file['arr_0']
+    print(omega)
+
+
+
 
 
 
