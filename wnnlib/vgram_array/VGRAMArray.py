@@ -32,7 +32,7 @@ class VGRAMArray:
             it.iternext()
 
         # Initialize array outputs
-        self.output_values = np.zeros(output_dims, dtype=int)
+        self.output_values = np.zeros(output_dims, order='C', dtype=float)
 
         # Debug options
         self.fig = None
@@ -69,7 +69,7 @@ class VGRAMArray:
             input_pattern (bool[]): Input pattern.
 
         Returns:
-            (int[]): Output values.
+            (float[]): Output values.
         """
         it = np.nditer(self.output_values, flags=['multi_index'], op_flags=['readwrite'])
         while not it.finished:
