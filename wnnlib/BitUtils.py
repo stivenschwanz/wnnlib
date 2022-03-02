@@ -33,12 +33,9 @@ class BitUtils:
     @staticmethod
     def integer_to_binary_array2(val, length):
         arr = np.zeros(length, order='C', dtype=np.uint8)
-        #arr = []
         i = 0
         for bit in bin(val)[2:].zfill(length):
-        #for bit in format(val, "016b"):
             arr[i] = np.uint8(bit)
-            #arr.append(np.uint8(bit))
             i += 1
         return arr
 

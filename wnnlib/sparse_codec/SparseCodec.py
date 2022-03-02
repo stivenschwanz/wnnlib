@@ -80,6 +80,28 @@ class SparseCodec(ABC):
 
         return sparse_vector
 
+    def one_hot_encoder(self, dense_vector):
+        """
+        Encode a dense vector into a high-dimensional, one-hot vector representation.
+
+        Parameters:
+            dense_vector (float[]): an array lying in a compact feature/observation space.
+
+        Returns:
+            (int[]): High-dimensional vector containing a one-hot representation of the given dense vector.
+        """
+        # Compute the index of the sparse vector corresponding to a given dense vector
+        sparse_vector_index = self.dense_vector_to_sparse_vector_index(dense_vector)
+
+        # Check sparse vector index
+        assert 0 <= sparse_vector_index < self.number_of_sparse_vectors
+
+        # Create the one-hot vector
+        one_hot_vector = np.zeros(self.number_of_sparse_vectors, order='C', dtype=np.uint8)
+        one_hot_vector[sparse_vector_index] = np.uint8(1)
+
+        return one_hot_vector
+
     @abstractmethod
     def sparse_vector_index_to_dense_vector(self, sparse_vector_index):
         """
@@ -253,22 +275,22 @@ class TestSparseCodec(unittest.TestCase):
                                             sparse_vectors_length=2048,
                                             maximum_number_of_activated_bits=64,
                                             minimum_hamming_distance_between_vectors=96,
-                                            output_file_name="./2k_sparse_vectors_seed_0.npz")
+                                            output_file_name="../../wnndata/2k_sparse_vectors_seed_0.npz")
 
     def test_1_codec(self):
         """
         Test case 1: load generated sparse vectors.
         """
-        sparse_vectors, random_seed = SparseCodec.load_sparse_vectors(input_file_name="./2k_sparse_vectors_seed_0.npz")
+        sparse_vectors, sparse_vector_parameters = SparseCodec.load_sparse_vectors(input_file_name="../../wnndata/2k_sparse_vectors_seed_0.npz")
 
         print(sparse_vectors)
-        print(random_seed)
+        print(sparse_vector_parameters)
 
     def test_2_codec(self):
         """
         Test case 1: load generated sparse vectors.
         """
-        sparse_codec = TestSparseCodec.DummySparseCodec(sparse_vectors_file="./2k_sparse_vectors_seed_0.npz")
+        sparse_codec = TestSparseCodec.DummySparseCodec(sparse_vectors_file="../../wnndata/2k_sparse_vectors_seed_0.npz")
 
         dense_vector_length = 10
         dense_vector = np.random.random(size=dense_vector_length)
@@ -277,6 +299,8 @@ class TestSparseCodec(unittest.TestCase):
         print(sparse_vector)
         dense_vector2 = sparse_codec.decode(sparse_vector)
         print(dense_vector2)
+        one_hot_vector = sparse_codec.one_hot_encoder(dense_vector)
+        print(one_hot_vector)
 
 
 if __name__ == '__main__':
