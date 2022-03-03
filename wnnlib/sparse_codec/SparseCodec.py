@@ -36,14 +36,39 @@ class SparseCodec(ABC):
             sparse_vectors_file (string): name of the file containing the sparse vectors.
         """
         # Load the sparse vectors
-        self.sparse_vectors, sparse_vector_parameters = SparseCodec.load_sparse_vectors(sparse_vectors_file)
+        self._sparse_vectors, sparse_vector_parameters = SparseCodec.load_sparse_vectors(sparse_vectors_file)
 
         # Set sparse vector parameters
-        [self.random_seed,
-         self.number_of_sparse_vectors,
-         self.sparse_vectors_length,
-         self.maximum_number_of_activated_bits,
-         self.minimum_hamming_distance_between_vectors] = sparse_vector_parameters
+        [self._random_seed,
+         self._number_of_sparse_vectors,
+         self._sparse_vectors_length,
+         self._maximum_number_of_activated_bits,
+         self._minimum_hamming_distance_between_vectors] = sparse_vector_parameters
+
+    @property
+    def random_seed(self):
+        """Get the random seed."""
+        return self._random_seed
+
+    @property
+    def number_of_sparse_vectors(self):
+        """Get the number of sparse vectors."""
+        return self._number_of_sparse_vectors
+
+    @property
+    def sparse_vectors_length(self):
+        """Get the length of the sparse vectors."""
+        return self._sparse_vectors_length
+
+    @property
+    def maximum_number_of_activated_bits(self):
+        """Get the maximum number of activated bits."""
+        return self._maximum_number_of_activated_bits
+
+    @property
+    def minimum_hamming_distance_between_vectors(self):
+        """Get the minimum Hamming distance between vectors."""
+        return self._minimum_hamming_distance_between_vectors
 
     @abstractmethod
     def dense_vector_to_sparse_vector_index(self, dense_vector):
@@ -73,10 +98,10 @@ class SparseCodec(ABC):
         sparse_vector_index = self.dense_vector_to_sparse_vector_index(dense_vector)
 
         # Check sparse vector index
-        assert 0 <= sparse_vector_index < self.number_of_sparse_vectors
+        assert 0 <= sparse_vector_index < self._number_of_sparse_vectors
 
         # Get the sparse vector according to the selected index
-        sparse_vector = self.sparse_vectors[sparse_vector_index]
+        sparse_vector = self._sparse_vectors[sparse_vector_index]
 
         return sparse_vector
 
@@ -94,10 +119,10 @@ class SparseCodec(ABC):
         sparse_vector_index = self.dense_vector_to_sparse_vector_index(dense_vector)
 
         # Check sparse vector index
-        assert 0 <= sparse_vector_index < self.number_of_sparse_vectors
+        assert 0 <= sparse_vector_index < self._number_of_sparse_vectors
 
         # Create the one-hot vector
-        one_hot_vector = np.zeros(self.number_of_sparse_vectors, order='C', dtype=np.uint8)
+        one_hot_vector = np.zeros(self._number_of_sparse_vectors, order='C', dtype=np.uint8)
         one_hot_vector[sparse_vector_index] = np.uint8(1)
 
         return one_hot_vector
@@ -128,9 +153,9 @@ class SparseCodec(ABC):
         """
         closest_sparse_vector_dist = np.inf
         closest_sparse_vector_idx = None
-        for idx in range(0, self.sparse_vectors.shape[0]):
+        for idx in range(0, self._sparse_vectors.shape[0]):
             # Efficiently compute the Hamming distance between the sparse vectors
-            dist = np.count_nonzero(self.sparse_vectors[idx, :] != sparse_vector)
+            dist = np.count_nonzero(self._sparse_vectors[idx, :] != sparse_vector)
             # Randomly update the closest sparse vector index if the stored sparse vector is at the minimum distance
             if dist < closest_sparse_vector_dist or \
                     dist == closest_sparse_vector_dist and \
@@ -281,15 +306,6 @@ class TestSparseCodec(unittest.TestCase):
         """
         Test case 1: load generated sparse vectors.
         """
-        sparse_vectors, sparse_vector_parameters = SparseCodec.load_sparse_vectors(input_file_name="../../wnndata/2k_sparse_vectors_seed_0.npz")
-
-        print(sparse_vectors)
-        print(sparse_vector_parameters)
-
-    def test_2_codec(self):
-        """
-        Test case 1: load generated sparse vectors.
-        """
         sparse_codec = TestSparseCodec.DummySparseCodec(sparse_vectors_file="../../wnndata/2k_sparse_vectors_seed_0.npz")
 
         dense_vector_length = 10
@@ -301,6 +317,8 @@ class TestSparseCodec(unittest.TestCase):
         print(dense_vector2)
         one_hot_vector = sparse_codec.one_hot_encoder(dense_vector)
         print(one_hot_vector)
+
+        print(getattr(sparse_codec, 'sparse_vectors_length'))
 
 
 if __name__ == '__main__':

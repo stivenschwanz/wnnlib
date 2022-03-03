@@ -305,16 +305,14 @@ class KDTree(SparseCodec):
 
         return patches, colors
 
-    def debug(self, points=[], style=0, dx=0, dy=1, marker="."):
+    def debug(self, style=0, dx=0, dy=1):
         """
         Recursively plot a visualization of the kd-tree .
 
         Parameters:
-            points (double[]): Points to draw.
             style (int): Tree style (0: rectangles, 1: sectors)
             dx (int): Index of the dimension corresponding to the X axis.
             dy (int): Index of the dimension corresponding to the Y axis.
-            marker (string): Marker of the point.
         """
         # Debug options
         if self.fig is None:
@@ -341,9 +339,6 @@ class KDTree(SparseCodec):
             self.ax.add_collection(collection)
             self.ax.set_xlim(-self.max_bounds[dx], self.max_bounds[dx])
             self.ax.set_ylim(-self.max_bounds[dx], self.max_bounds[dx])
-        # self.ax.scatter(points[dx], points[dy], s=10, marker=marker)
-        # cbar = plt.colorbar(collection)
-        # cbar.set_label('depth', rotation=90)
 
         # self.ax.redraw_in_frame()
         self.fig.tight_layout()
