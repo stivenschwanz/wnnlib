@@ -79,6 +79,29 @@ class KDTree(SparseCodec):
         if sparse_vectors_file is not None:
             super().__init__(sparse_vectors_file)
 
+    def __del__(self):
+        """
+        Delete method.
+        """
+        self.cleanup()
+
+    def cleanup(self):
+        """
+        Clean everything up.
+        """
+        if self.fig is not None:
+            self.ax.clear()
+            plt.close(self.fig)
+            self.fig.canvas.manager.window.destroy()
+            self.ax = None
+            self.fig = None
+
+        if self.left_child is not None:
+            self.left_child = None
+
+        if self.right_child is not None:
+            self.right_child = None
+
     def update_child_bounds(self):
         """
         Auxiliary method to update the subtree bounds.
@@ -317,6 +340,8 @@ class KDTree(SparseCodec):
         # Debug options
         if self.fig is None:
             self.fig, self.ax = plt.subplots()
+            # win = self.fig.canvas.manager.window
+            # win.overrideredirect(1)  # draws a completely frameless window
 
         # Clear axis
         self.ax.clear()
