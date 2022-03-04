@@ -192,20 +192,25 @@ class KDTree(SparseCodec):
         self.update_child_bounds()
 
         if self.split_point is None:
-            return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
+            # return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
+            return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
 
         if dim_value < self.split_point:
             if self.left_child is not None:
-                return np.append(self.left_child.encode_point_into_binary_sequence(point), [np.uint8(0)])
+                return np.append([np.uint8(0)], self.left_child.encode_point_into_binary_sequence(point))
             else:
-                return np.append(np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8), [np.uint8(0)])
+                # return np.append([np.uint8(0)], np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8))
+                return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
+        #else:
         elif dim_value > self.split_point:
             if self.right_child is not None:
-                return np.append(self.right_child.encode_point_into_binary_sequence(point), [np.uint8(1)])
+                return np.append([np.uint8(1)], self.right_child.encode_point_into_binary_sequence(point))
             else:
-                return np.append(np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8), [np.uint8(1)])
+                # return np.append([np.uint8(1)], np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8))
+                return np.append([np.uint8(1)], np.zeros(self.max_depth-self.depth-1, order='C', dtype=np.uint8))
         else:
-            return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
+            # return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
+            return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
 
     def dense_vector_to_sparse_vector_index(self, dense_vector):
         """
@@ -240,7 +245,8 @@ class KDTree(SparseCodec):
 
         # Check if the maximum depth was achieved
         if self.depth >= self.max_depth:
-            return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
+            # return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
+            return 0.5 * (self.min_bounds + self.max_bounds)
 
         # Get the code at the current depth
         depth_code = code[self.depth]
@@ -254,7 +260,7 @@ class KDTree(SparseCodec):
             return self.right_child.decode_binary_sequence_into_point(code)
         else:
             # return np.append(self.min_bounds, self.max_bounds)
-            return 0.5*(self.min_bounds+self.max_bounds)
+            return 0.5 * (self.min_bounds+self.max_bounds)
             # return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
 
     def sparse_vector_index_to_dense_vector(self, sparse_vector_index):
@@ -371,56 +377,6 @@ class KDTree(SparseCodec):
         plt.pause(0.0001)
 
 
-def exec_test(tree, data, style):
-    """
-    Execute a test.
-
-    Parameters:
-        tree (object): kd-tree.
-        data (double[]): Data points.
-        style (int): Tree style (0: rectangles, 1: sectors)
-    """
-
-    number_of_points = data.size
-    print('Encoding %d points.' % number_of_points)
-    elapsed = 0
-    i = 0
-    cdata = []
-    for point in data:
-        print('----------------------------------')
-        print(i)
-        print(point)
-        t = time.time()
-        c = tree.encode(dense_vector=point)
-        elapsed += time.time() - t
-        tree.debug(style=style)
-        print(c)
-        cdata.append(c)
-        i += 1
-    print('Elapsed time %s s' % elapsed)
-    print('Average encoding time %s s' % (elapsed / number_of_points))
-
-    print('Decoding %d points.' % number_of_points)
-    elapsed = 0
-    i = 0
-    acc_error2 = 0
-    for code in cdata:
-        print('----------------------------------')
-        print(i)
-        x = data[i, :]
-        print(x)
-        print(code)
-        t = time.time()
-        d = tree.decode(sparse_vector=code)
-        elapsed += time.time() - t
-        print(d)
-        acc_error2 += np.transpose(x - d) * (x - d)
-        i += 1
-    print('Elapsed time %s s' % elapsed)
-    print('Average decoding time %s s' % (elapsed / number_of_points))
-    print('Root mean squared decoding error %s s' % (np.sqrt(acc_error2 / i)))
-
-
 def exec_codec_test(tree, data, statistics, style):
     """
     Execute a test.
@@ -432,35 +388,40 @@ def exec_codec_test(tree, data, statistics, style):
         style (int): Tree style (0: rectangles, 1: sectors)
     """
     np.random.seed(0)
-    # Encoding
     number_of_points = data.size/2
-    elapsed_time = 0
-    cdata = []
-    for point in data:
-        t = time.time()
-        c = tree.encode(dense_vector=point)
-        elapsed_time += time.time() - t
-        tree.debug(style=style)
-        cdata.append(c)
-    statistics["number_of_encoding_points"] = number_of_points
-    statistics["elapsed_encoding_time"] = elapsed_time
-    statistics["average_encoding_time"] = elapsed_time / number_of_points
-
-    # Decoding
-    elapsed_time = 0
-    i = 0
+    elapsed_time1 = 0
+    elapsed_time2 = 0
     acc_error2 = 0
-    for code in cdata:
-        x = data[i, :]
+    for dense_vector1 in data:
+        # Encoding
         t = time.time()
-        d = tree.decode(sparse_vector=code)
-        elapsed_time += time.time() - t
-        acc_error2 += np.transpose(x - d) * (x - d)
-        i += 1
+        sparse_vector = tree.encode(dense_vector=dense_vector1)
+        elapsed_time1 += time.time() - t
+
+        # Decoding
+        t = time.time()
+        dense_vector2 = tree.decode(sparse_vector=sparse_vector)
+        elapsed_time2 += time.time() - t
+
+        # Accumulated squared error
+        squared_error = np.transpose(dense_vector1 - dense_vector2) * (dense_vector1 - dense_vector2)
+        acc_error2 += squared_error
+
+        print('-----------------------------------------')
+        print('Dense vector 1 = %s ' % dense_vector1)
+        print('Dense vector 1 = %s ' % dense_vector2)
+        print('Squared error = %s ' % squared_error)
+
+        # Debug kd-tree
+        tree.debug(style=style)
+
+    statistics["number_of_encoding_points"] = number_of_points
+    statistics["elapsed_encoding_time"] = elapsed_time1
+    statistics["average_encoding_time"] = elapsed_time1 / number_of_points
     statistics["number_of_decoding_points"] = number_of_points
-    statistics["elapsed_decoding_time"] = elapsed_time
-    statistics["average_decoding_time"] = elapsed_time / number_of_points
-    statistics["rms_decoding_error"] = np.sqrt(acc_error2 / i)
+    statistics["elapsed_decoding_time"] = elapsed_time2
+    statistics["average_decoding_time"] = elapsed_time2 / number_of_points
+    statistics["rms_decoding_error"] = np.sqrt(acc_error2 / number_of_points)
 
 
 class TestKDTree(unittest.TestCase):
