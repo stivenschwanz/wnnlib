@@ -1,5 +1,5 @@
 function msfcn_sparse_codec(block)
-% Level-2 MATLAB file S-Function for VGRAM array.
+% Level-2 MATLAB file S-Function for sparse codec.
 
 setup(block);
   
@@ -39,13 +39,13 @@ function setup(block)
     block.SetPreCompOutPortInfoToDynamic;
     
     % Override the input port properties.
-    block.InputPort(1).DatatypeID  = input_dtype;
-    block.InputPort(1).Complexity  = 'Real';
+    block.InputPort(1).DatatypeID = input_dtype;
+    block.InputPort(1).Complexity = 'Real';
     block.InputPort(1).Dimensions = input_dims;
    
     % Override the output port properties.
-    block.OutputPort(1).DatatypeID  = output_dtype;
-    block.OutputPort(1).Complexity  = 'Real';
+    block.OutputPort(1).DatatypeID = output_dtype;
+    block.OutputPort(1).Complexity = 'Real';
     block.OutputPort(1).Dimensions = output_dims;
     
     % Register the parameters.
@@ -98,11 +98,11 @@ function DoPostPropSetup(block)
      % Set the input/output dimensions and data types properly
     switch codec_type
         case 0 % encoder
-            output_name =  'sparse_vector_output';
+            output_name = 'sparse_vector_output';
             output_dims = sparse_vector_length;
             output_dtype = 3; % uint8
         case 1 % decoder
-            output_name =  'dense_vector_output';
+            output_name = 'dense_vector_output';
             output_dims = dense_vector_length;
             output_dtype = 0;  % double;
         otherwise
@@ -112,6 +112,7 @@ function DoPostPropSetup(block)
 
     %% Setup Dwork
     block.NumDworks = 2;
+    
     block.Dwork(1).Name            = output_name;   
     block.Dwork(1).Dimensions      = output_dims;
     block.Dwork(1).DatatypeID      = output_dtype;
