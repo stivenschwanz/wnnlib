@@ -33,7 +33,7 @@ class KDTree(SparseCodec):
         assert max_depth > 0
 
         # Check if the learning rate is between zero and one
-        assert 0 < learning_rate < 1
+        assert 0 <= learning_rate <= 1
 
         # Check if the minimum splitting volume is strictly positive
         assert min_splitting_volume > 0
@@ -59,7 +59,10 @@ class KDTree(SparseCodec):
         self.split_dim = self.depth % k
 
         # Check if the sizes of all k dimensions are strictly positive
-        assert np.alltrue(self.sizes > 0)
+        # assert np.alltrue(self.sizes > 0)
+
+        if not np.alltrue(self.sizes > 0):
+            print(self.sizes)
 
         # Compute volume
         self.volume = np.prod(self.sizes)
@@ -102,6 +105,17 @@ class KDTree(SparseCodec):
         if self.right_child is not None:
             self.right_child = None
 
+    def get_split_value(self):
+        return (1 - self.split_point) * self.min_bounds[self.split_dim] + \
+               self.split_point * self.max_bounds[self.split_dim]
+
+    def update_split_point(self, dim_value):
+        curr_point = (dim_value - self.min_bounds[self.split_dim]) / self.sizes[self.split_dim]
+        if self.split_point is None:
+            self.split_point = curr_point
+        else:
+            self.split_point = self.learning_rate * curr_point + (1 - self.learning_rate) * self.split_point
+
     def update_child_bounds(self):
         """
         Auxiliary method to update the subtree bounds.
@@ -115,28 +129,34 @@ class KDTree(SparseCodec):
             return
 
         # Check bounds consistency and reset splitting point
-        if self.split_point < self.min_bounds[self.split_dim] or self.split_point > self.max_bounds[self.split_dim]:
-            self.split_point = None
-            self.left_child = None
-            self.right_child = None
-            return
+        #if self.split_point < self.min_bounds[self.split_dim] or self.split_point > self.max_bounds[self.split_dim]:
+        #    self.split_point = None
+        #    self.left_child = None
+        #    self.right_child = None
+        #    return
+
+        # Get splitting value
+        split_value = self.get_split_value()
 
         # Compute the left child bounds, size and volume
         left_child_min_bounds = self.min_bounds.copy()
         left_child_max_bounds = self.max_bounds.copy()
-        left_child_max_bounds[self.split_dim] = self.split_point
+        #left_child_max_bounds[self.split_dim] = self.split_point
+        left_child_max_bounds[self.split_dim] = split_value
         left_child_sizes = left_child_max_bounds - left_child_min_bounds
         left_child_volume = np.product(left_child_sizes)
 
         # Compute the right child bounds, size and volume
         right_child_min_bounds = self.min_bounds.copy()
-        right_child_min_bounds[self.split_dim] = self.split_point
+        #right_child_min_bounds[self.split_dim] = self.split_point
+        right_child_min_bounds[self.split_dim] = split_value
         right_child_max_bounds = self.max_bounds.copy()
         right_child_sizes = right_child_max_bounds - right_child_min_bounds
         right_child_volume = np.product(right_child_sizes)
 
         if self.left_child is None:
-            if self.volume >= self.min_splitting_volume:
+            #if self.volume >= self.min_splitting_volume:
+            if left_child_volume >= self.min_splitting_volume:
                 self.left_child = KDTree(self.max_depth, self.learning_rate, self.min_splitting_volume,
                                          left_child_min_bounds, left_child_max_bounds, self.depth + 1)
         else:
@@ -144,9 +164,11 @@ class KDTree(SparseCodec):
             self.left_child.max_bounds = left_child_max_bounds
             self.left_child.sizes = left_child_sizes
             self.left_child.volume = left_child_volume
+            self.left_child.update_child_bounds()
 
         if self.right_child is None:
-            if self.volume >= self.min_splitting_volume:
+            #if self.volume >= self.min_splitting_volume:
+            if right_child_volume >= self.min_splitting_volume:
                 self.right_child = KDTree(self.max_depth, self.learning_rate, self.min_splitting_volume,
                                           right_child_min_bounds, right_child_max_bounds, self.depth + 1)
         else:
@@ -154,6 +176,7 @@ class KDTree(SparseCodec):
             self.right_child.max_bounds = right_child_max_bounds
             self.right_child.sizes = right_child_sizes
             self.right_child.volume = right_child_volume
+            self.right_child.update_child_bounds()
 
     def encode_point_into_binary_sequence(self, point):
         """
@@ -183,26 +206,32 @@ class KDTree(SparseCodec):
         dim_value = point[self.split_dim]
 
         # Update the splitting value according to the learning rate
-        if self.split_point is None:
-            self.split_point = dim_value
-        else:
-            self.split_point = self.learning_rate * dim_value + (1 - self.learning_rate) * self.split_point
+        self.update_split_point(dim_value)
+        #if self.split_point is None:
+        #    self.split_point = dim_value
+        #else:
+        #    self.split_point = self.learning_rate * dim_value + (1 - self.learning_rate) * self.split_point
 
-        # Update the child bounds according to the new splitting value
+        # Update the child bounds according to the new splitting point
         self.update_child_bounds()
 
-        if self.split_point is None:
-            # return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
-            return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
+        #if self.split_point is None:
+        #    # return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
+        #    return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
 
-        if dim_value < self.split_point:
+        # Get splitting value
+        split_value = self.get_split_value()
+
+        #if dim_value < self.split_point:
+        if dim_value < split_value:
             if self.left_child is not None:
                 return np.append([np.uint8(0)], self.left_child.encode_point_into_binary_sequence(point))
             else:
                 # return np.append([np.uint8(0)], np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8))
                 return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
         #else:
-        elif dim_value > self.split_point:
+        #elif dim_value > self.split_point:
+        elif dim_value > split_value:
             if self.right_child is not None:
                 return np.append([np.uint8(1)], self.right_child.encode_point_into_binary_sequence(point))
             else:
@@ -398,6 +427,9 @@ def exec_codec_test(tree, data, statistics, style):
         sparse_vector = tree.encode(dense_vector=dense_vector1)
         elapsed_time1 += time.time() - t
 
+        # Debug kd-tree
+        tree.debug(style=style)
+
         # Decoding
         t = time.time()
         dense_vector2 = tree.decode(sparse_vector=sparse_vector)
@@ -411,9 +443,6 @@ def exec_codec_test(tree, data, statistics, style):
         print('Dense vector 1 = %s ' % dense_vector1)
         print('Dense vector 1 = %s ' % dense_vector2)
         print('Squared error = %s ' % squared_error)
-
-        # Debug kd-tree
-        tree.debug(style=style)
 
     statistics["number_of_encoding_points"] = number_of_points
     statistics["elapsed_encoding_time"] = elapsed_time1
@@ -442,7 +471,7 @@ class TestKDTree(unittest.TestCase):
         Set up method: configure parameters and create kd-trees.
         """
         np.random.seed(0)
-        cls.test_0_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.01,
+        cls.test_0_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
                                  min_bounds=[0, 0], max_bounds=[10, 10],
                                  sparse_vectors_file="../../wnndata/64k_sparse_vectors_seed_0.npz")
         cls.test_0_data = np.append(np.random.uniform(low=0, high=10, size=[256, 2]),
@@ -454,8 +483,8 @@ class TestKDTree(unittest.TestCase):
                                  "number_of_decoding_points": 0.0,
                                  "elapsed_decoding_time": 0.0,
                                  "average_decoding_time": 0.0,
-                                 "rms_decoding_error": 0.0}
-        cls.test_1_tree = KDTree(max_depth=16, learning_rate=0.1, min_splitting_volume=0.00001,
+                                 "rms_decoding_error": [0.0, 0.0]}
+        cls.test_1_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
                                  min_bounds=[0, -60], max_bounds=[20, 60],
                                  sparse_vectors_file="../../wnndata/64k_sparse_vectors_seed_0.npz")
         cls.test_1_data = np.append(np.random.uniform(low=[0, -60], high=[20, 60], size=[256, 2]),
@@ -467,7 +496,7 @@ class TestKDTree(unittest.TestCase):
                                  "number_of_decoding_points": 0.0,
                                  "elapsed_decoding_time": 0.0,
                                  "average_decoding_time": 0.0,
-                                 "rms_decoding_error": 0.0}
+                                 "rms_decoding_error": [0.0, 0.0]}
 
     @classmethod
     def tearDownClass(cls):
