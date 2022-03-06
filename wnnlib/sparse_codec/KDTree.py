@@ -110,10 +110,14 @@ class KDTree(SparseCodec):
                self.split_point * self.max_bounds[self.split_dim]
 
     def update_split_point(self, dim_value):
-        curr_point = (dim_value - self.min_bounds[self.split_dim]) / self.sizes[self.split_dim]
+        #curr_point = (dim_value - self.min_bounds[self.split_dim]) / self.sizes[self.split_dim]
         if self.split_point is None:
-            self.split_point = curr_point
+            #self.split_point = curr_point
+            # Evenly splits the node at the first time (note that this is not exactly a kd-tree)
+            self.split_point = 0.5
         else:
+            # Adjusts the existing splitting point a bit according to the learning rate
+            curr_point = (dim_value - self.min_bounds[self.split_dim]) / self.sizes[self.split_dim]
             self.split_point = self.learning_rate * curr_point + (1 - self.learning_rate) * self.split_point
 
     def update_child_bounds(self):
@@ -126,6 +130,10 @@ class KDTree(SparseCodec):
 
         # Sanity check
         if self.split_point is None:
+            return
+
+        # Sanity check
+        if self.learning_rate == 0.0:
             return
 
         # Check bounds consistency and reset splitting point
