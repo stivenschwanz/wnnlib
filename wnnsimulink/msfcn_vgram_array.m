@@ -27,7 +27,7 @@ function setup(block)
     block.InputPort(2).Complexity  = 'Real';
     block.InputPort(2).Dimensions = pattern_length;
 
-    block.InputPort(3).DatatypeID  = 3;  % uint8
+    block.InputPort(3).DatatypeID  = 0; % double
     block.InputPort(3).Complexity  = 'Real';
     block.InputPort(3).Dimensions = output_dims;
 
@@ -40,7 +40,7 @@ function setup(block)
     block.InputPort(5).Dimensions = 1;
     
     % Override the output port properties.
-    block.OutputPort(1).DatatypeID  = 6; % int32
+    block.OutputPort(1).DatatypeID  = 0; % double
     block.OutputPort(1).Complexity  = 'Real';
     block.OutputPort(1).Dimensions = output_dims;
     
@@ -54,7 +54,7 @@ function setup(block)
     %
     %  [-1, 0]               : Inherited sample time
     %  [-2, 0]               : Variable sample time
-    block.SampleTimes = [0 0];
+    block.SampleTimes = [-1 0];
     
     % -----------------------------------------------------------------
     % Options
@@ -80,7 +80,6 @@ function setup(block)
     block.RegBlockMethod('CheckParameters', @CheckPrms);
     block.RegBlockMethod('Start', @Start);
     block.RegBlockMethod('Outputs', @Outputs);
-    block.RegBlockMethod('Update', @Update);
     block.RegBlockMethod('Terminate', @Terminate);
 
 %endfunction
@@ -90,12 +89,19 @@ function DoPostPropSetup(block)
     output_dims = block.DialogPrm(2).Data;
 
     %% Setup Dwork
-    block.NumDworks = 1;
-    block.Dwork(1).Name = 'output_values'; 
-    block.Dwork(1).Dimensions      = prod(output_dims);
-    block.Dwork(1).DatatypeID      = 6;
+    block.NumDworks = 2;
+  
+    block.Dwork(1).Name            = 'codec_ownership';   
+    block.Dwork(1).Dimensions      = 1;
+    block.Dwork(1).DatatypeID      = 8;  % boolean
     block.Dwork(1).Complexity      = 'Real';
     block.Dwork(1).UsedAsDiscState = true;
+
+    block.Dwork(2).Name            = 'last_output_values';   
+    block.Dwork(2).Dimensions      = prod(output_dims);
+    block.Dwork(2).DatatypeID      = 0; % double
+    block.Dwork(2).Complexity      = 'Real';
+    block.Dwork(2).UsedAsDiscState = true;
 
 %endfunction
 
@@ -153,13 +159,14 @@ function Start(block)
     max_dist = block.DialogPrm(7).Data;
 
     % Create the VGRAM array
-    py.wnnlib.vgram_array.create(array_id, output_dims, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist);
+    array_ownership = py.wnnlib.vgram_array.create(array_id, output_dims, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist);
 
-    % Default output values to zero
-    output_values = zeros(output_dims,'int32');
+    % Default output values
+    output_values = zeros(output_dims, 'double');
 
-    % Store output values
-    block.Dwork(1).Data = output_values(:);
+    % Store state values
+    block.Dwork(1).Data = logical(array_ownership);
+    block.Dwork(2).Data = output_values(:);
    
 %endfunction
 
@@ -167,23 +174,6 @@ function Outputs(block)
     % Get parameters
     array_id = block.DialogPrm(1).Data;
     output_dims = block.DialogPrm(2).Data;
-    
-    % Restore the last output values
-    block.OutputPort(1).Data = reshape(block.Dwork(1).Data, output_dims);
-
-    % Get debug flag parameter
-    debug_flag = block.DialogPrm(8).Data;
-
-    if(debug_flag)
-        % Debug VGRAM array outputs
-        py.wnnlib.vgram_array.debug(array_id);
-    end
-  
-%endfunction
-
-function Update(block)
-    % Get parameters
-    array_id = block.DialogPrm(1).Data;
 
     % Get recall/learn flag
     recall_flag = block.InputPort(4).Data;
@@ -194,10 +184,16 @@ function Update(block)
         recall_pattern = block.InputPort(1).Data;
 
         % Recall output values using the given input pattern
-        output_values = int32(py.wnnlib.vgram_array.recall(array_id, recall_pattern));
+        output_values = double(py.wnnlib.vgram_array.recall(array_id, recall_pattern));
     
-        % Save the last output values
-        block.Dwork(1).Data = output_values(:);
+        % Set the output values
+        block.OutputPort(1).Data = output_values;
+
+        % Save the output values
+        block.Dwork(2).Data = output_values(:);
+   else
+       % Restore the last output values
+        block.OutputPort(1).Data = reshape(block.Dwork(2).Data, output_dims);
    end
 
    if (learn_flag)
@@ -210,6 +206,14 @@ function Update(block)
         % Learn the given input pattern
         py.wnnlib.vgram_array.learn(array_id, learn_pattern, output_steps);
    end
+
+    % Get debug flag parameter
+    debug_flag = block.DialogPrm(8).Data;
+
+    if(debug_flag)
+        % Debug VGRAM array outputs
+        py.wnnlib.vgram_array.debug(array_id);
+    end
   
 %endfunction
 
@@ -217,8 +221,13 @@ function Terminate(block)
     % Get parameters    
     array_id = block.DialogPrm(1).Data;
     
+    % Get array ownership
+    array_ownership = block.Dwork(1).Data;
+    
     % Delete VGRAM array
-    py.wnnlib.vgram_array.delete(array_id);
+    if array_ownership
+        py.wnnlib.vgram_array.delete(array_id);
+    end
 
 %endfunction
  
