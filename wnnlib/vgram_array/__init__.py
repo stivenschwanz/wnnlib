@@ -14,7 +14,14 @@ def create(array_id, output_dims, pattern_length, min_mem_size, max_mem_size, mi
         max_mem_size (int): Maximum memory size.
         min_dist (int): Minimum Hamming distance.
         max_dist (int): Maximum Hamming distance.
+
+    Returns:
+        (boolean): Ownership flag indicating whether the API caller owns the VGRAM array or not.
     """
+    # Check whether the VGRAM array already exists or not. In the former case, the existing array already has an owner.
+    if array_id in globals.g_vgram_arrays:
+        return False
+
     # Sanity check: check whether the array already exists and clean up
     globals.g_vgram_arrays[array_id] = VGRAMArray.VGRAMArray(output_dims=tuple(map(int, output_dims)),
                                                              pattern_length=int(pattern_length),
@@ -22,6 +29,9 @@ def create(array_id, output_dims, pattern_length, min_mem_size, max_mem_size, mi
                                                              max_mem_size=int(max_mem_size),
                                                              min_dist=int(min_dist),
                                                              max_dist=int(max_dist))
+
+    # The caller is the owner of the created array. Thus, the caller is supposed to destroy the array.
+    return True
 
 
 def delete(array_id):
@@ -31,8 +41,10 @@ def delete(array_id):
     Parameters:
         array_id (int): Unique identifier of the VGRAM array.
     """
-    globals.g_vgram_arrays[array_id].cleanup()
-    globals.g_vgram_arrays.pop(array_id)
+    # Check whether the VGRAM array already exists or not. In the former case, the owner can destroy the array.
+    if array_id in globals.g_vgram_arrays:
+        globals.g_vgram_arrays[array_id].cleanup()
+        globals.g_vgram_arrays.pop(array_id)
 
 
 def get_ids():

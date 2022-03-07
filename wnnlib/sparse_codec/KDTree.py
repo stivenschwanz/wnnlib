@@ -59,16 +59,13 @@ class KDTree(SparseCodec):
         self.split_dim = self.depth % k
 
         # Check if the sizes of all k dimensions are strictly positive
-        # assert np.alltrue(self.sizes > 0)
-
-        if not np.alltrue(self.sizes > 0):
-            print(self.sizes)
+        assert np.alltrue(self.sizes > 0)
 
         # Compute volume
         self.volume = np.prod(self.sizes)
 
         # Check if the volume is greater or equal than the minimum allowed splitting volume
-        # assert self.volume >= self.min_splitting_volume
+        assert self.volume >= self.min_splitting_volume
 
         # Initialize members
         self.split_point = None
@@ -110,9 +107,7 @@ class KDTree(SparseCodec):
                self.split_point * self.max_bounds[self.split_dim]
 
     def update_split_point(self, dim_value):
-        #curr_point = (dim_value - self.min_bounds[self.split_dim]) / self.sizes[self.split_dim]
         if self.split_point is None:
-            #self.split_point = curr_point
             # Evenly splits the node at the first time (note that this is not exactly a kd-tree)
             self.split_point = 0.5
         else:
@@ -136,34 +131,24 @@ class KDTree(SparseCodec):
         if self.learning_rate == 0.0:
             return
 
-        # Check bounds consistency and reset splitting point
-        #if self.split_point < self.min_bounds[self.split_dim] or self.split_point > self.max_bounds[self.split_dim]:
-        #    self.split_point = None
-        #    self.left_child = None
-        #    self.right_child = None
-        #    return
-
         # Get splitting value
         split_value = self.get_split_value()
 
         # Compute the left child bounds, size and volume
         left_child_min_bounds = self.min_bounds.copy()
         left_child_max_bounds = self.max_bounds.copy()
-        #left_child_max_bounds[self.split_dim] = self.split_point
         left_child_max_bounds[self.split_dim] = split_value
         left_child_sizes = left_child_max_bounds - left_child_min_bounds
         left_child_volume = np.product(left_child_sizes)
 
         # Compute the right child bounds, size and volume
         right_child_min_bounds = self.min_bounds.copy()
-        #right_child_min_bounds[self.split_dim] = self.split_point
         right_child_min_bounds[self.split_dim] = split_value
         right_child_max_bounds = self.max_bounds.copy()
         right_child_sizes = right_child_max_bounds - right_child_min_bounds
         right_child_volume = np.product(right_child_sizes)
 
         if self.left_child is None:
-            #if self.volume >= self.min_splitting_volume:
             if left_child_volume >= self.min_splitting_volume:
                 self.left_child = KDTree(self.max_depth, self.learning_rate, self.min_splitting_volume,
                                          left_child_min_bounds, left_child_max_bounds, self.depth + 1)
@@ -175,7 +160,6 @@ class KDTree(SparseCodec):
             self.left_child.update_child_bounds()
 
         if self.right_child is None:
-            #if self.volume >= self.min_splitting_volume:
             if right_child_volume >= self.min_splitting_volume:
                 self.right_child = KDTree(self.max_depth, self.learning_rate, self.min_splitting_volume,
                                           right_child_min_bounds, right_child_max_bounds, self.depth + 1)
@@ -215,38 +199,24 @@ class KDTree(SparseCodec):
 
         # Update the splitting value according to the learning rate
         self.update_split_point(dim_value)
-        #if self.split_point is None:
-        #    self.split_point = dim_value
-        #else:
-        #    self.split_point = self.learning_rate * dim_value + (1 - self.learning_rate) * self.split_point
 
         # Update the child bounds according to the new splitting point
         self.update_child_bounds()
 
-        #if self.split_point is None:
-        #    # return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
-        #    return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
-
         # Get splitting value
         split_value = self.get_split_value()
 
-        #if dim_value < self.split_point:
         if dim_value < split_value:
             if self.left_child is not None:
                 return np.append([np.uint8(0)], self.left_child.encode_point_into_binary_sequence(point))
             else:
-                # return np.append([np.uint8(0)], np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8))
                 return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
-        #else:
-        #elif dim_value > self.split_point:
         elif dim_value > split_value:
             if self.right_child is not None:
                 return np.append([np.uint8(1)], self.right_child.encode_point_into_binary_sequence(point))
             else:
-                # return np.append([np.uint8(1)], np.random.randint(low=0, high=2, size=self.max_depth-self.depth-1, dtype=np.uint8))
                 return np.append([np.uint8(1)], np.zeros(self.max_depth-self.depth-1, order='C', dtype=np.uint8))
         else:
-            # return np.random.randint(low=0, high=2, size=self.max_depth-self.depth, dtype=np.uint8)
             return np.zeros(self.max_depth-self.depth, order='C', dtype=np.uint8)
 
     def dense_vector_to_sparse_vector_index(self, dense_vector):
@@ -282,7 +252,6 @@ class KDTree(SparseCodec):
 
         # Check if the maximum depth was achieved
         if self.depth >= self.max_depth:
-            # return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
             return 0.5 * (self.min_bounds + self.max_bounds)
 
         # Get the code at the current depth
@@ -296,9 +265,7 @@ class KDTree(SparseCodec):
         elif depth_code == 1 and self.right_child is not None:
             return self.right_child.decode_binary_sequence_into_point(code)
         else:
-            # return np.append(self.min_bounds, self.max_bounds)
             return 0.5 * (self.min_bounds+self.max_bounds)
-            # return np.random.uniform(low=self.min_bounds, high=self.max_bounds, size=k)
 
     def sparse_vector_index_to_dense_vector(self, sparse_vector_index):
         """

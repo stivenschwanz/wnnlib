@@ -100,8 +100,8 @@ class VGRAMArray:
             self.ax.axes.xaxis.set_visible(False)
             self.ax.axes.yaxis.set_visible(False)
             # self.fig.canvas.mpl_connect('close_event', lambda _: self.fig.canvas.manager.window.destroy())
-            win = self.fig.canvas.manager.window
-            win.overrideredirect(1)  # draws a completely frameless window
+            # win = self.fig.canvas.manager.window
+            # win.overrideredirect(1)  # draws a completely frameless window
 
         self.ax.clear()
         self.ax.imshow(self.output_values, cmap='gray', vmin=0, vmax=15, interpolation='nearest', aspect='auto')
