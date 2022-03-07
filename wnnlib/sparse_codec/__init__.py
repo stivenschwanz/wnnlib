@@ -95,12 +95,26 @@ def encode(codec_id, point):
 
     Parameters:
         codec_id (int): Unique identifier of the encoder/decoder.
-        point (double[]): Point to draw.
+        point (double[]): Point to encode.
 
     Returns:
         (int[]): Sparse representation of the given point.
     """
     return globals.g_sparse_codecs[codec_id].encode(point)
+
+
+def one_hot_encode(codec_id, point):
+    """
+    Encode a point using an existing sparse encoder/decoder.
+
+    Parameters:
+        codec_id (int): Unique identifier of the encoder/decoder.
+        point (double[]): Point to encode.
+
+    Returns:
+        (int[]): One hot encoding of the given point.
+    """
+    return globals.g_sparse_codecs[codec_id].one_hot_encode(point)
 
 
 def decode(codec_id, code):

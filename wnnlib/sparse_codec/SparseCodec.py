@@ -105,7 +105,7 @@ class SparseCodec(ABC):
 
         return sparse_vector
 
-    def one_hot_encoder(self, dense_vector):
+    def one_hot_encode(self, dense_vector):
         """
         Encode a dense vector into a high-dimensional, one-hot vector representation.
 
