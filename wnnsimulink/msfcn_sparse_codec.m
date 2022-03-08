@@ -10,7 +10,8 @@ function setup(block)
     dense_vector_length = block.DialogPrm(2).Data;
     sparse_vector_length = block.DialogPrm(3).Data;
     codec_type = block.DialogPrm(11).Data;
-    
+    number_of_sparse_vectors = block.DialogPrm(12).Data;
+
     % Set the input/output dimensions and data types properly
     switch codec_type
         case 0 % encoder
@@ -23,6 +24,11 @@ function setup(block)
             input_dtype = 3; % uint8
             output_dims = dense_vector_length;
             output_dtype = 0;  % double;
+        case 2 % one-hot encoder
+            input_dims = sparse_vector_length;
+            input_dtype = 3; % uint8
+            output_dims = number_of_sparse_vectors;
+            output_dtype = 3; % uint8
         otherwise
             input_dims = [];
             input_dtype = [];
@@ -49,8 +55,8 @@ function setup(block)
     block.OutputPort(1).Dimensions = output_dims;
     
     % Register the parameters.
-    block.NumDialogPrms     = 11;
-    block.DialogPrmsTunable = {'Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Tunable','Nontunable'};
+    block.NumDialogPrms     = 12;
+    block.DialogPrmsTunable = {'Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Nontunable','Tunable','Nontunable','Nontunable'};
     
     % Register the sample times.
     %  [0 offset]            : Continuous sample time
@@ -114,6 +120,7 @@ function CheckPrms(block)
     sparse_vectors_file = block.DialogPrm(9).Data;
     debug_flag = block.DialogPrm(10).Data;
     codec_type = block.DialogPrm(11).Data;
+    number_of_sparse_vectors = block.DialogPrm(12).Data;
 
     % Check the codec identifier
     assert(isa(codec_id, 'int32'), 'The codec id must be an integer.');
@@ -155,6 +162,10 @@ function CheckPrms(block)
     assert(isa(codec_type, 'int32'), 'The codec type must be an integer.');
     assert(codec_type >= 0, 'The codec type must be greater than or equal zero.');
     assert(codec_type <= 1, 'The codec type must be smaller than or equal 1.');
+
+    % Check the dense vector length
+    assert(isa(number_of_sparse_vectors, 'int32'), 'The number of sparse vectors must be an integer.');
+    assert(number_of_sparse_vectors > 0, 'The number of sparse vectors must be greater than zero.');
 
 %endfunction
 
@@ -207,13 +218,28 @@ function Outputs(block)
 %             disp(block.CurrentTime)
 %             disp(sum(input_sparse_vector));
             
-            % Learn the given input pattern
+            % Decode the given sparse vector into a dense vector
             output_dense_vector = double(py.wnnlib.sparse_codec.decode(codec_id, input_sparse_vector));
 
 %             disp(output_dense_vector);
             
             % Set the output values
             block.OutputPort(1).Data = output_dense_vector(:);
+        case 2 % one-hot encoder
+            % Get the sparse vector
+            input_sparse_vector = block.InputPort(1).Data;
+
+%             disp("decoding:");
+%             disp(block.CurrentTime)
+%             disp(sum(input_sparse_vector));
+            
+            % Encode the given sparse vector into a one-hot vector
+            output_one_hot_vector = double(py.wnnlib.sparse_codec.one_hot_encode(codec_id, input_sparse_vector));
+
+%             disp(output_one_hot_vector);
+            
+            % Set the output values
+            block.OutputPort(1).Data = output_one_hot_vector(:);
         otherwise
             block.OutputPort(1).Data = [];
     end
