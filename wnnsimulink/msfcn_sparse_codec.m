@@ -29,6 +29,11 @@ function setup(block)
             input_dtype = 3; % uint8
             output_dims = number_of_sparse_vectors;
             output_dtype = 3; % uint8
+        case 3 % one-hot decoder
+            input_dims = number_of_sparse_vectors;
+            input_dtype = 3; % uint8
+            output_dims = sparse_vector_length;
+            output_dtype = 3; % uint8
         otherwise
             input_dims = [];
             input_dtype = [];
@@ -240,6 +245,21 @@ function Outputs(block)
             
             % Set the output values
             block.OutputPort(1).Data = output_one_hot_vector(:);
+        case 3 % one-hot decoder
+            % Get the one-hot vector
+            input_one_hot_vector = block.InputPort(1).Data;
+
+%             disp("decoding:");
+%             disp(block.CurrentTime)
+%             disp(sum(input_one_hot_vector));
+            
+            % Encode the given one-hot vector into a sparse vector
+            output_sparse_vector = double(py.wnnlib.sparse_codec.one_hot_decode(codec_id, input_one_hot_vector));
+
+%             disp(output_sparse_vector);
+            
+            % Set the output values
+            block.OutputPort(1).Data = output_sparse_vector(:);
         otherwise
             block.OutputPort(1).Data = [];
     end

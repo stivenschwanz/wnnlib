@@ -129,3 +129,17 @@ def decode(codec_id, code):
         (double[]): Point corresponding to the sparse representation.
     """
     return globals.g_sparse_codecs[codec_id].decode(code)
+
+
+def one_hot_decode(codec_id, one_hot_vector):
+    """
+    Decode a one-hot vector using an existing sparse encoder/decoder.
+
+    Parameters:
+        codec_id (int): Unique identifier of the encoder/decoder.
+        one_hot_vector (int[]): One-hot vector representation.
+
+    Returns:
+        (int[]): Sparse vector corresponding to the given one-hot-vector.
+    """
+    return globals.g_sparse_codecs[codec_id].one_hot_decode(one_hot_vector)

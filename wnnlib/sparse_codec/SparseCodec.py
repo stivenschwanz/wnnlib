@@ -127,6 +127,33 @@ class SparseCodec(ABC):
 
         return one_hot_vector
 
+    def one_hot_decode(self, one_hot_vector):
+        """
+        Decode a one-hot vector into a high-dimensional, sparse representation.
+
+        Parameters:
+            one_hot_vector (int[]): One-hot vector representation.
+
+        Returns:
+            (int[]): High-dimensional sparse vector corresponding to the given one-hot vector.
+        """
+        # Find the index of the non-zero element along the one-hot vector
+        non_zero_indexes = np.flatnonzero(one_hot_vector)
+
+        # Check non-zero indexes
+        assert np.len(non_zero_indexes) == 1
+
+        # Get the sparse vector index
+        sparse_vector_index = non_zero_indexes[0]
+
+        # Check sparse vector index
+        assert 0 <= sparse_vector_index < self._number_of_sparse_vectors
+
+        # Get the sparse vector according to the selected index
+        sparse_vector = self._sparse_vectors[sparse_vector_index]
+
+        return sparse_vector
+
     @abstractmethod
     def sparse_vector_index_to_dense_vector(self, sparse_vector_index):
         """
