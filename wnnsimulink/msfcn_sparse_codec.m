@@ -166,7 +166,7 @@ function CheckPrms(block)
     % Check the codec type
     assert(isa(codec_type, 'int32'), 'The codec type must be an integer.');
     assert(codec_type >= 0, 'The codec type must be greater than or equal zero.');
-    assert(codec_type <= 1, 'The codec type must be smaller than or equal 1.');
+    assert(codec_type <= 3, 'The codec type must be smaller than or equal 3.');
 
     % Check the dense vector length
     assert(isa(number_of_sparse_vectors, 'int32'), 'The number of sparse vectors must be an integer.');
@@ -239,7 +239,7 @@ function Outputs(block)
 %             disp(sum(input_sparse_vector));
             
             % Encode the given sparse vector into a one-hot vector
-            output_one_hot_vector = double(py.wnnlib.sparse_codec.one_hot_encode(codec_id, input_sparse_vector));
+            output_one_hot_vector = uint8(py.wnnlib.sparse_codec.one_hot_encode(codec_id, input_sparse_vector));
 
 %             disp(output_one_hot_vector);
             
@@ -254,7 +254,7 @@ function Outputs(block)
 %             disp(sum(input_one_hot_vector));
             
             % Encode the given one-hot vector into a sparse vector
-            output_sparse_vector = double(py.wnnlib.sparse_codec.one_hot_decode(codec_id, input_one_hot_vector));
+            output_sparse_vector = uint8(py.wnnlib.sparse_codec.one_hot_decode(codec_id, input_one_hot_vector));
 
 %             disp(output_sparse_vector);
             
