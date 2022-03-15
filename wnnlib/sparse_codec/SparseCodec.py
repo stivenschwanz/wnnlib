@@ -116,7 +116,7 @@ class SparseCodec(ABC):
             (int[]): High-dimensional vector containing a one-hot representation of the given dense vector.
         """
         # Find the index of the closest sparse vector to the given sparse vector
-        sparse_vector_index = self.find_closest_sparse_vector(sparse_vector)
+        _, sparse_vector_index = self.find_closest_sparse_vector(sparse_vector)
 
         # Check sparse vector index
         assert 0 <= sparse_vector_index < self._number_of_sparse_vectors
@@ -141,7 +141,7 @@ class SparseCodec(ABC):
         non_zero_indexes = np.flatnonzero(one_hot_vector)
 
         # Check non-zero indexes
-        assert np.len(non_zero_indexes) == 1
+        assert non_zero_indexes.size == 1
 
         # Get the sparse vector index
         sparse_vector_index = non_zero_indexes[0]
