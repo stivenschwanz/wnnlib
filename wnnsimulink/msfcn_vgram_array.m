@@ -86,22 +86,23 @@ function setup(block)
 
 function DoPostPropSetup(block)
     % Get parameters
-    output_dims = block.DialogPrm(2).Data;
+%     output_dims = block.DialogPrm(2).Data;
 
     %% Setup Dwork
-    block.NumDworks = 2;
-  
+    block.NumDworks = 1;
+%     block.NumDworks = 2;
+
     block.Dwork(1).Name            = 'codec_ownership';   
     block.Dwork(1).Dimensions      = 1;
     block.Dwork(1).DatatypeID      = 8;  % boolean
     block.Dwork(1).Complexity      = 'Real';
     block.Dwork(1).UsedAsDiscState = true;
 
-    block.Dwork(2).Name            = 'last_output_values';   
-    block.Dwork(2).Dimensions      = prod(output_dims);
-    block.Dwork(2).DatatypeID      = 0; % double
-    block.Dwork(2).Complexity      = 'Real';
-    block.Dwork(2).UsedAsDiscState = true;
+%     block.Dwork(2).Name            = 'last_output_values';   
+%     block.Dwork(2).Dimensions      = prod(output_dims);
+%     block.Dwork(2).DatatypeID      = 0; % double
+%     block.Dwork(2).Complexity      = 'Real';
+%     block.Dwork(2).UsedAsDiscState = true;
 
 %endfunction
 
@@ -162,18 +163,18 @@ function Start(block)
     array_ownership = py.wnnlib.vgram_array.create(array_id, output_dims, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist);
 
     % Default output values
-    output_values = zeros(output_dims, 'double');
+%     output_values = zeros(output_dims, 'double');
 
     % Store state values
     block.Dwork(1).Data = logical(array_ownership);
-    block.Dwork(2).Data = output_values(:);
+%     block.Dwork(2).Data = output_values(:);
    
 %endfunction
 
 function Outputs(block)
     % Get parameters
     array_id = block.DialogPrm(1).Data;
-    output_dims = block.DialogPrm(2).Data;
+%     output_dims = block.DialogPrm(2).Data;
 
     % Get recall/learn flag
     recall_flag = block.InputPort(4).Data;
@@ -189,24 +190,28 @@ function Outputs(block)
         % Set the output values
         block.OutputPort(1).Data = output_values;
 
-        % Save the output values
-        block.Dwork(2).Data = output_values(:);
-   else
-       % Restore the last output values
-        block.OutputPort(1).Data = reshape(block.Dwork(2).Data, output_dims);
+%         % Save the output values
+%         block.Dwork(2).Data = output_values(:);
+%    else
+%         % Restore the last output values
+%         block.OutputPort(1).Data = reshape(block.Dwork(2).Data, output_dims);
    end
 
    if (learn_flag)
         % Get learn pattern
         learn_pattern = block.InputPort(2).Data;
-        a= sum(learn_pattern);
 
         % Get output steps
         output_steps = block.InputPort(3).Data;
-        b= sum(output_steps);
 
         % Learn the given input pattern
         py.wnnlib.vgram_array.learn(array_id, learn_pattern, output_steps);
+
+        % Recall output values using the given input pattern
+        output_values = double(py.wnnlib.vgram_array.recall(array_id, learn_pattern));
+
+        % Set the output values
+        block.OutputPort(1).Data = output_values;
    end
 
     % Get debug flag parameter
