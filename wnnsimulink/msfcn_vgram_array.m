@@ -199,9 +199,11 @@ function Outputs(block)
    if (learn_flag)
         % Get learn pattern
         learn_pattern = block.InputPort(2).Data;
+        a= sum(learn_pattern);
 
         % Get output steps
         output_steps = block.InputPort(3).Data;
+        b= sum(output_steps);
 
         % Learn the given input pattern
         py.wnnlib.vgram_array.learn(array_id, learn_pattern, output_steps);
