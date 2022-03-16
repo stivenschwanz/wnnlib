@@ -86,6 +86,10 @@ class VGRAMArray:
             input_pattern (bool[]): Input pattern.
             output_steps (int[]): Output steps.
         """
+        # Sanity check
+        if np.shape(output_steps) is not self.output_values.shape:
+            output_steps = np.reshape(output_steps, self.output_values.shape)
+
         it = np.nditer(self.nodes, flags=['multi_index', 'refs_ok'], op_flags=['readwrite'])
         while not it.finished:
             self.nodes[it.multi_index].learn(input_pattern, output_steps[it.multi_index])
