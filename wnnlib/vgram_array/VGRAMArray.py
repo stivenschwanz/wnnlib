@@ -34,6 +34,17 @@ class VGRAMArray:
         # Initialize array outputs
         self.output_values = np.zeros(output_dims, order='C', dtype=float)
 
+        # Adjust debug window dimensions if necessary
+        aspect_ratio = output_dims[0]/output_dims[1]
+        if 0.5 <= aspect_ratio <= 2:
+            self.debug_dims = output_dims
+        else:
+            number_outputs = np.prod(output_dims)
+            k = np.log2(number_outputs)
+            kx = int(np.ceil(k/2))
+            ky = int(np.floor(k/2))
+            self.debug_dims = (2**kx, 2**ky)
+
         # Debug options
         self.fig = None
         self.ax = None
@@ -108,7 +119,7 @@ class VGRAMArray:
             # win.overrideredirect(1)  # draws a completely frameless window
 
         self.ax.clear()
-        self.ax.imshow(self.output_values, cmap='gray', vmin=0, vmax=15, interpolation='nearest', aspect='auto')
+        self.ax.imshow(self.output_values.reshape(self.debug_dims), cmap='gray', vmin=0, vmax=15, interpolation='nearest', aspect='auto')
 
         self.fig.tight_layout()
         plt.show(block=False)
