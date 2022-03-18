@@ -323,11 +323,11 @@ class TestSparseCodec(unittest.TestCase):
         Test case 0: generate the sparse vectors.
         """
         SparseCodec.generate_sparse_vectors(random_seed=0,
-                                            number_of_sparse_vectors=2 * 1024,
+                                            number_of_sparse_vectors=16 * 1024,
                                             sparse_vectors_length=2048,
                                             maximum_number_of_activated_bits=64,
                                             minimum_hamming_distance_between_vectors=96,
-                                            output_file_name="../../wnndata/2k_sparse_vectors_seed_0.npz")
+                                            output_file_name="../../wnndata/16k_sparse_vectors_seed_0.npz")
 
     def test_1_codec(self):
         """
