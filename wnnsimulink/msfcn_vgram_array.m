@@ -87,7 +87,6 @@ function setup(block)
 function DoPostPropSetup(block)
     %% Setup Dwork
     block.NumDworks = 1;
-
     block.Dwork(1).Name            = 'codec_ownership';   
     block.Dwork(1).Dimensions      = 1;
     block.Dwork(1).DatatypeID      = 8;  % boolean
