@@ -109,7 +109,16 @@ class KDTree(SparseCodec):
     def update_split_point(self, dim_value):
         if self.split_point is None:
             # Evenly splits the node at the first time (note that this is not exactly a kd-tree)
-            self.split_point = 0.5
+            # self.split_point = 0.5
+            curr_point = (dim_value - self.min_bounds[self.split_dim]) / self.sizes[self.split_dim]
+            # if curr_point < 0.5:
+            #     #curr_point += 0.01 / self.sizes[self.split_dim]
+            #     curr_point = (curr_point + 0.5)/2
+            # elif curr_point > 0.5:
+            #     #curr_point -= 0.01 / self.sizes[self.split_dim]
+            #     curr_point = (curr_point + 0.5)/2
+            curr_point = (curr_point + 0.5) / 2
+            self.split_point = curr_point
         else:
             # Adjusts the existing splitting point a bit according to the learning rate
             curr_point = (dim_value - self.min_bounds[self.split_dim]) / self.sizes[self.split_dim]
