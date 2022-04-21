@@ -7,6 +7,7 @@ setup(block);
 
 function setup(block)
     % Get parameters
+    codec_id = block.DialogPrm(1).Data;
     dense_vector_length = block.DialogPrm(2).Data;
     sparse_vector_length = block.DialogPrm(3).Data;
     codec_type = block.DialogPrm(11).Data;
@@ -222,14 +223,20 @@ function Outputs(block)
 %             disp("decoding:");
 %             disp(block.CurrentTime)
 %             disp(sum(input_sparse_vector));
-            
-            % Decode the given sparse vector into a dense vector
-            output_dense_vector = double(py.wnnlib.sparse_codec.decode(codec_id, input_sparse_vector));
 
-%             disp(output_dense_vector);
-            
-            % Set the output values
-            block.OutputPort(1).Data = output_dense_vector(:);
+            if sum(input_sparse_vector) ~= 0
+                
+                % Decode the given sparse vector into a dense vector
+                output_dense_vector = double(py.wnnlib.sparse_codec.decode(codec_id, input_sparse_vector));
+    
+%                 disp(output_dense_vector);
+                
+                % Set the output values
+                block.OutputPort(1).Data = output_dense_vector(:);
+            else
+                % Reset the output values
+                block.OutputPort(1).Data(:) = uint8(0);
+            end
         case 2 % one-hot encoder
             % Get the sparse vector
             input_sparse_vector = block.InputPort(1).Data;
@@ -254,12 +261,17 @@ function Outputs(block)
 %             disp(sum(input_one_hot_vector));
             
             % Encode the given one-hot vector into a sparse vector
-            output_sparse_vector = uint8(py.wnnlib.sparse_codec.one_hot_decode(codec_id, input_one_hot_vector));
-
-%             disp(output_sparse_vector);
-            
-            % Set the output values
-            block.OutputPort(1).Data = output_sparse_vector(:);
+            if sum(input_one_hot_vector) ~= 0
+                output_sparse_vector = uint8(py.wnnlib.sparse_codec.one_hot_decode(codec_id, input_one_hot_vector));
+                
+%               disp(output_sparse_vector);
+                
+                % Set the output values
+                block.OutputPort(1).Data = output_sparse_vector(:);
+            else
+                % Reset the output values
+                block.OutputPort(1).Data(:) = uint8(0);
+            end
         otherwise
             block.OutputPort(1).Data = [];
     end
