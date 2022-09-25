@@ -105,6 +105,27 @@ class SparseCodec(ABC):
 
         return sparse_vector
 
+    def encode_(self, dense_vector):
+        """
+        Encode a dense vector into a high-dimensional, sparse binary representation.
+
+        Parameters:
+            dense_vector (float[]): an array lying in a compact feature/observation space.
+
+        Returns:
+            (int[]): High-dimensional vector containing a sparse binary representation of the given dense vector.
+        """
+        # Compute the index of the sparse vector corresponding to a given dense vector
+        sparse_vector_index = self.dense_vector_to_sparse_vector_index(dense_vector)
+
+        # Check sparse vector index
+        assert 0 <= sparse_vector_index < self._number_of_sparse_vectors
+
+        # Get the sparse vector according to the selected index
+        sparse_vector = self._sparse_vectors[sparse_vector_index]
+
+        return sparse_vector
+
     def one_hot_encode(self, sparse_vector):
         """
         Encode a sparse vector into a high-dimensional, one-hot vector representation.

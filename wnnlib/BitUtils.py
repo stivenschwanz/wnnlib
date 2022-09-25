@@ -76,9 +76,18 @@ class TestBitUtils(unittest.TestCase):
 
         cls.test_statistics = None
 
-    def test_0_learn(self):
+    def test_0(self):
         """
         Test case 0: binary array to integer.
+        """
+        arr = np.array([0, 0, 0, 0, 1, 0, 1], dtype=np.uint8)
+        print(arr)
+        val = BitUtils.binary_array_to_integer(arr)
+        print(val)
+
+    def test_1(self):
+        """
+        Test case 1: binary array to integer.
         """
         elapsed_time1 = 0
         elapsed_time2 = 0
