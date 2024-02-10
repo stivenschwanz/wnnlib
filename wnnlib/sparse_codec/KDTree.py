@@ -48,8 +48,8 @@ class KDTree(SparseCodec):
         self.min_splitting_volume = min_splitting_volume
 
         # Compute sizes
-        self.min_bounds = np.asarray(min_bounds, dtype=np.float64)
-        self.max_bounds = np.asarray(max_bounds, dtype=np.float64)
+        self.min_bounds = np.asarray(min_bounds, dtype=np.float64)*np.ones(1)
+        self.max_bounds = np.asarray(max_bounds, dtype=np.float64)*np.ones(1)
         self.sizes = self.max_bounds - self.min_bounds
 
         # Get the number of dimensions
@@ -194,6 +194,8 @@ class KDTree(SparseCodec):
         if self.depth >= self.max_depth:
             return []
 
+        point *= np.ones(1)
+
         # Get the number of dimensions
         k = len(point)
 
@@ -295,7 +297,7 @@ class KDTree(SparseCodec):
 
         return point
 
-    def draw_rectangle(self):
+    def draw_rectangle(self, dx=0, dy=1):
         """
         Recursively plot a visualization of the kd-tree using rectangles.
         """
@@ -306,17 +308,17 @@ class KDTree(SparseCodec):
         # self.update_child_bounds()
 
         if self.left_child is not None:
-            left_child_patches, left_child_colors = self.left_child.draw_rectangle()
+            left_child_patches, left_child_colors = self.left_child.draw_rectangle(dx, dy)
             patches += left_child_patches
             colors += left_child_colors
 
         if self.right_child is not None:
-            right_child_patches, right_child_colors = self.right_child.draw_rectangle()
+            right_child_patches, right_child_colors = self.right_child.draw_rectangle(dx, dy)
             patches += right_child_patches
             colors += right_child_colors
 
         if len(patches) == 0:
-            patches += [Rectangle(self.min_bounds, *self.sizes)]
+            patches += [Rectangle([self.min_bounds[dx], self.min_bounds[dy]], self.sizes[dx], self.sizes[dy])]
             colors += [self.depth]
 
         return patches, colors
@@ -367,7 +369,7 @@ class KDTree(SparseCodec):
         self.ax.set_aspect('equal', adjustable='box')
 
         if style == 0:
-            patches, colors = self.draw_rectangle()
+            patches, colors = self.draw_rectangle(dx, dy)
             collection = PatchCollection(patches, cmap=plt.cm.get_cmap('gray'), ec='k', alpha=0.75)
             collection.set_array(np.asarray(colors))
             collection.set_edgecolor('k')
@@ -390,7 +392,7 @@ class KDTree(SparseCodec):
         plt.pause(0.0001)
 
 
-def exec_codec_test(tree, data, statistics, style):
+def exec_codec_test(tree, data, statistics, style, dx, dy):
     """
     Execute a test.
 
@@ -412,7 +414,7 @@ def exec_codec_test(tree, data, statistics, style):
         elapsed_time1 += time.time() - t
 
         # Debug kd-tree
-        tree.debug(style=style)
+        tree.debug(style=style, dx=dx, dy=dy)
 
         # Decoding
         t = time.time()
@@ -448,6 +450,9 @@ class TestKDTree(unittest.TestCase):
     test_1_tree = None
     test_1_data = None
     test_1_statistics = None
+    test_2_tree = None
+    test_2_data = None
+    test_2_statistics = None
 
     @classmethod
     def setUpClass(cls):
@@ -475,6 +480,18 @@ class TestKDTree(unittest.TestCase):
                                     np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256),
                                     axis=0)
         cls.test_1_statistics = {"number_of_encoding_points": 0.0,
+                                 "elapsed_encoding_time": 0.0,
+                                 "average_encoding_time": 0.0,
+                                 "number_of_decoding_points": 0.0,
+                                 "elapsed_decoding_time": 0.0,
+                                 "average_decoding_time": 0.0,
+                                 "rms_decoding_error": [0.0, 0.0]}
+
+        cls.test_2_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
+                                 min_bounds=[-10], max_bounds=[10],
+                                 sparse_vectors_file="../../wnndata/64k_sparse_vectors_seed_0.npz")
+        cls.test_2_data = np.random.uniform(low=-10, high=10, size=[256, 1])
+        cls.test_2_statistics = {"number_of_encoding_points": 0.0,
                                  "elapsed_encoding_time": 0.0,
                                  "average_encoding_time": 0.0,
                                  "number_of_decoding_points": 0.0,
@@ -515,26 +532,50 @@ class TestKDTree(unittest.TestCase):
         print('Root mean squared decoding error (range): {:.2e}'.format(cls.test_1_statistics["rms_decoding_error"][0]))
         print('Root mean squared decoding error (azimuth): {:.2e}'.format(cls.test_1_statistics["rms_decoding_error"][1]))
 
+        # Univariate data
+        print("Encoding/decoding univariate data:")
+        print('Elapsed time to encode {0} points: {1:.2e} seconds'.format(
+            cls.test_2_statistics["number_of_encoding_points"],
+            cls.test_2_statistics["elapsed_encoding_time"]))
+        print('Average encoding time: {:.2e} seconds'.format(cls.test_2_statistics["average_encoding_time"]))
+
+        print('Elapsed time to decode {0} points: {1:.2e} seconds'.format(
+            cls.test_2_statistics["number_of_decoding_points"],
+            cls.test_2_statistics["elapsed_decoding_time"]))
+        print('Average decoding time: {:.2e} seconds'.format(cls.test_2_statistics["average_decoding_time"]))
+        print('Root mean squared decoding error (range): {:.2e}'.format(cls.test_2_statistics["rms_decoding_error"][0]))
+        print('Root mean squared decoding error (azimuth): {:.2e}'.format(cls.test_2_statistics["rms_decoding_error"][1]))
+
         cls.test_0_tree = None
         cls.test_0_data = None
         cls.test_0_statistics = None
         cls.test_1_tree = None
         cls.test_1_data = None
         cls.test_1_statistics = None
+        cls.test_2_tree = None
+        cls.test_2_data = None
+        cls.test_2_statistics = None
 
     def test_0_codec(self):
         """
         Test case 0: batch encoding/decoding Cartesian data.
         """
         np.random.seed(0)
-        exec_codec_test(self.test_0_tree, self.test_0_data, self.test_0_statistics, style=0)
+        exec_codec_test(self.test_0_tree, self.test_0_data, self.test_0_statistics, style=0, dx=0, dy=1)
 
     def test_1_codec(self):
         """
         Test case 1: batch encoding/decoding polar data.
         """
         np.random.seed(0)
-        exec_codec_test(self.test_1_tree, self.test_1_data, self.test_1_statistics, style=1)
+        exec_codec_test(self.test_1_tree, self.test_1_data, self.test_1_statistics, style=1, dx=0, dy=1)
+
+    def test_2_codec(self):
+        """
+        Test case 1: batch encoding/decoding univariate data.
+        """
+        np.random.seed(0)
+        exec_codec_test(self.test_2_tree, self.test_2_data, self.test_2_statistics, style=0, dx=0, dy=0)
 
 
 if __name__ == '__main__':
