@@ -11,7 +11,7 @@ from wnnlib.BitUtils import BitUtils
 
 class KDTree(SparseCodec):
     """
-    This class defines a self-adapting kd-tree which incrementally build an encoding function directly from data.
+    This class defines a self-adapting kd-tree which incrementally builds an encoding function directly from data.
     More precisely, as we travel from the root node to the corresponding leaf to encode a data point, we build a binary
     sequence by concatenating '0' or '1' when we turn to the left or to the right child, respectively. Moreover,
     we adjust the splitting point at each visited node using a convex combination rule based on a given learning rate

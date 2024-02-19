@@ -70,6 +70,22 @@ class VGRAMNode:
                 closest_pattern_idx = idx
         return [closest_pattern_dist, closest_pattern_idx]
 
+    def get_pattern_by_index(self, index):
+        """
+        Get the stored input pattern using its index.
+
+        Parameters:
+            index (int): Index of the pattern.
+
+        Returns:
+            (bool[]): Input patter at the given memory location.
+        """
+        input_pattern = None
+        valid_indexes = self.all_indexes[self.valid_pairs]
+        if index in valid_indexes:
+            input_pattern = self.input_patterns[index, :]
+        return input_pattern
+
     def recall(self, input_pattern):
         """
         Recall the output value associated with the closest stored pattern to the input pattern.
