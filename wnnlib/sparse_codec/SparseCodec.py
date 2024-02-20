@@ -1,11 +1,11 @@
 import unittest
-from abc import ABC, abstractmethod
+from abc import ABCMeta, abstractmethod
 from numpy import random
 import numpy as np
 from wnnlib.BitUtils import BitUtils
 
 
-class SparseCodec(ABC):
+class SparseCodec(ABCMeta):
     """
     This abstract class defines a sparse encoder/decoder (codec).
 
