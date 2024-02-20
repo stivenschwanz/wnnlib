@@ -115,10 +115,13 @@ class VGRAMNode:
         Parameters:
             input_pattern (bool[]): Input pattern.
             output_step (float): Output step.
+
+        Return:
+            (int): Index of the updated input-output pair
         """
         # Skip learning
         if output_step == 0:
-            return
+            return None
 
         # Prune a low frequency pairs first
         if self.num_valid_pairs == self.max_mem_size:
@@ -138,6 +141,7 @@ class VGRAMNode:
             self.output_values[0] = float(1)
             self.valid_pairs[0] = True
             self.num_valid_pairs = int(1)
+            return 0
         else:
             # Find the closest stored pattern
             [closest_pattern_dist, closest_pattern_idx] = self.find_closest_pattern(input_pattern)
@@ -145,6 +149,7 @@ class VGRAMNode:
             if closest_pattern_dist <= self.min_dist:
                 # Update an existing input - output pair
                 self.output_values[closest_pattern_idx] += float(output_step)
+                return closest_pattern_idx
             else:
                 # Store a new input - output pair
                 empty_entry_idx = np.argmin(self.valid_pairs)
@@ -152,6 +157,7 @@ class VGRAMNode:
                 self.output_values[empty_entry_idx] = float(output_step)
                 self.valid_pairs[empty_entry_idx] = True
                 self.num_valid_pairs += int(1)
+                return empty_entry_idx
 
     def debug(self, input_pattern=None, output_value=None):
         """
