@@ -10,7 +10,7 @@ class VGRAMArray:
     """
     This class defines an array of Virtual Generalized Random Access Memory (VGRAM) nodes.
     """
-    def __init__(self, output_dims, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist):
+    def __init__(self, output_dims, pattern_length, min_mem_size, max_mem_size, min_learn_dist, max_recall_dist, default_outputs):
         """
         Initialize an empty VGRAM node.
 
@@ -19,16 +19,24 @@ class VGRAMArray:
             pattern_length (int): Length of the stored patterns.
             min_mem_size (int): Minimum memory size.
             max_mem_size (int): Maximum memory size.
-            min_dist (int): Minimum Hamming distance.
-            max_dist (int): Maximum Hamming distance.
+            min_learn_dist (int): Minimum Hamming distance.
+            max_recall_dist (int): Maximum Hamming distance.
+            default_outputs (float[]): Default output values
         """
+        # Sanity check
+        if np.shape(default_outputs) is not output_dims:
+            default_outputs = np.reshape(default_outputs, output_dims)
+
         # Initialize array nodes
         self.nodes = np.empty(output_dims, dtype=object)
         it = np.nditer(self.nodes, flags=['multi_index', 'refs_ok'], op_flags=['readwrite'])
         while not it.finished:
             self.nodes[it.multi_index] = VGRAMNode.VGRAMNode(pattern_length=pattern_length,
-                                                             min_mem_size=min_mem_size, max_mem_size=max_mem_size,
-                                                             min_dist=min_dist, max_dist=max_dist)
+                                                             min_mem_size=min_mem_size,
+                                                             max_mem_size=max_mem_size,
+                                                             min_learn_dist=min_learn_dist,
+                                                             max_recall_dist=max_recall_dist,
+                                                             default_output=default_outputs[it.multi_index])
             it.iternext()
 
         # Initialize array outputs
@@ -89,21 +97,21 @@ class VGRAMArray:
 
         return self.output_values
 
-    def learn(self, input_pattern, output_steps):
+    def learn(self, input_pattern, output_values):
         """
         Update the stored value associated with the closest input patter to an input pattern.
 
         Parameters:
             input_pattern (bool[]): Input pattern.
-            output_steps (int[]): Output steps.
+            output_values (float[]): Output values.
         """
         # Sanity check
-        if np.shape(output_steps) is not self.output_values.shape:
-            output_steps = np.reshape(output_steps, self.output_values.shape)
+        if np.shape(output_values) is not self.output_values.shape:
+            output_values = np.reshape(output_values, self.output_values.shape)
 
         it = np.nditer(self.nodes, flags=['multi_index', 'refs_ok'], op_flags=['readwrite'])
         while not it.finished:
-            self.nodes[it.multi_index].learn(input_pattern, output_steps[it.multi_index])
+            self.nodes[it.multi_index].learn(input_pattern, output_values[it.multi_index])
             it.iternext()
 
     def debug(self):

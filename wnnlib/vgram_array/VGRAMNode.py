@@ -9,7 +9,7 @@ class VGRAMNode:
     """
     This class defines a Virtual Generalized Random Access Memory (VGRAM) node.
     """
-    def __init__(self, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist):
+    def __init__(self, pattern_length, min_mem_size, max_mem_size, min_learn_dist, max_recall_dist, default_output=None):
         """
         Initialize an empty VGRAM node.
 
@@ -17,8 +17,9 @@ class VGRAMNode:
             pattern_length (int): Length of the stored patterns.
             min_mem_size (int): Minimum memory size.
             max_mem_size (int): Maximum memory size.
-            min_dist (int): Minimum Hamming distance.
-            max_dist (int): Maximum Hamming distance.
+            min_learn_dist (int): Minimum Hamming distance.
+            max_recall_dist (int): Maximum Hamming distance.
+            default_output (float): Default output value
         """
         # Check pattern length
         assert pattern_length > 0
@@ -27,14 +28,15 @@ class VGRAMNode:
         assert 0 < min_mem_size < max_mem_size
 
         # Check minimum and maximum Hamming distances
-        assert 0 <= min_dist <= max_dist
+        assert 0 <= min_learn_dist <= max_recall_dist
 
         # Initialize constant members
         self.pattern_length = pattern_length
         self.min_mem_size = min_mem_size
         self.max_mem_size = max_mem_size
-        self.min_dist = min_dist
-        self.max_dist = max_dist
+        self.min_learn_dist = min_learn_dist
+        self.max_recall_dist = max_recall_dist
+        self.default_output = default_output
 
         # Initialize memory
         self.input_patterns = np.zeros((max_mem_size, pattern_length), order='C', dtype=bool)
@@ -96,33 +98,29 @@ class VGRAMNode:
         Returns:
             (float): Output value.
         """
-        # Default to zero
-        output_value = float(0)
+        # Default output value
+        output_value = self.default_output
 
         # Find the closest stored pattern
         [closest_pattern_dist, closest_pattern_idx] = self.find_closest_pattern(input_pattern)
 
-        if closest_pattern_dist <= self.max_dist:
+        if closest_pattern_dist <= self.max_recall_dist:
             # Return the output associated with the closest input pattern
             output_value = self.output_values[closest_pattern_idx]
 
         return output_value
 
-    def learn(self, input_pattern, output_step=float(1)):
+    def learn(self, input_pattern, output_value):
         """
         Update the stored value associated with the closest input pattern to an input pattern.
 
         Parameters:
             input_pattern (bool[]): Input pattern.
-            output_step (float): Output step.
+            output_value (float): Output value.
 
         Return:
             (int): Index of the updated input-output pair
         """
-        # Skip learning
-        if output_step == 0:
-            return None
-
         # Prune a low frequency pairs first
         if self.num_valid_pairs == self.max_mem_size:
             min_value = np.min(self.output_values)
@@ -131,14 +129,14 @@ class VGRAMNode:
             max_pruning = self.max_mem_size - self.min_mem_size
             prune_indexes = min_indexes[:max_pruning]
             self.input_patterns[prune_indexes, :] = np.zeros(self.pattern_length, order='C', dtype=bool)
-            self.output_values[prune_indexes] = float(0)
+            self.output_values[prune_indexes] = self.default_output
             self.valid_pairs[prune_indexes] = False
             self.num_valid_pairs -= len(prune_indexes)
 
         if self.num_valid_pairs == np.uint(0):
             # Store the first input - output pair
             self.input_patterns[0, :] = input_pattern
-            self.output_values[0] = float(1)
+            self.output_values[0] = float(output_value)
             self.valid_pairs[0] = True
             self.num_valid_pairs = int(1)
             return 0
@@ -146,15 +144,15 @@ class VGRAMNode:
             # Find the closest stored pattern
             [closest_pattern_dist, closest_pattern_idx] = self.find_closest_pattern(input_pattern)
 
-            if closest_pattern_dist <= self.min_dist:
+            if closest_pattern_dist <= self.min_learn_dist:
                 # Update an existing input - output pair
-                self.output_values[closest_pattern_idx] += float(output_step)
+                self.output_values[closest_pattern_idx] = float(output_value)
                 return closest_pattern_idx
             else:
                 # Store a new input - output pair
                 empty_entry_idx = np.argmin(self.valid_pairs)
                 self.input_patterns[empty_entry_idx, :] = input_pattern
-                self.output_values[empty_entry_idx] = float(output_step)
+                self.output_values[empty_entry_idx] = float(output_value)
                 self.valid_pairs[empty_entry_idx] = True
                 self.num_valid_pairs += int(1)
                 return empty_entry_idx
@@ -203,8 +201,8 @@ class TestVGRAMNode(unittest.TestCase):
     number_of_patterns = 512
     min_mem_size = 63
     max_mem_size = 64
-    min_dist = 2
-    max_dist = 8
+    min_learn_dist = 2
+    max_recall_dist = 8
     pattern_length = 16
     node = None
     test_statistics = None
@@ -216,7 +214,7 @@ class TestVGRAMNode(unittest.TestCase):
         """
         cls.node = VGRAMNode(pattern_length=cls.pattern_length,
                              min_mem_size=cls.min_mem_size, max_mem_size=cls.max_mem_size,
-                             min_dist=cls.min_dist, max_dist=cls.max_dist)
+                             min_learn_dist=cls.min_learn_dist, max_recall_dist=cls.max_recall_dist)
         cls.test_statistics = {"average_recall_time": 0.0,
                                "average_learn_time": 0.0,
                                "elapsed_recall_time": 0.0,
@@ -246,7 +244,7 @@ class TestVGRAMNode(unittest.TestCase):
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             t = time.time()
-            self.node.learn(pattern)
+            self.node.learn(pattern, 1)
             elapsed_time += time.time() - t
             self.node.debug(pattern)
         self.test_statistics["elapsed_learn_time"] = elapsed_time
