@@ -1,6 +1,7 @@
 from numpy import random
 import numpy as np
-from matplotlib import pyplot as plt
+import matplotlib.pyplot as plt
+import matplotlib.colors as clrs
 import unittest
 import time
 from wnnlib.vgram_array import VGRAMArray, VGRAMNode
@@ -150,7 +151,7 @@ class NPCLAD:
                                                 min_mem_size=1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.ps, max_recall_dist=self.ps,
                                                 default_outputs=self.alphaz)
-        self.wnn_layer2.learn(self.bs_n_1_n, self.alphaz+self.bz_n_1_n)
+        self.wnn_layer2.learn(self.bs_n_1_n, self.alphaz+10*self.bz_n_1_n)
 
         # ----------------------------------------------------------------------
         # Initialize the adaptive scalar encoder
@@ -286,7 +287,7 @@ class NPCLAD:
             # Step 5: Update the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
             # ----------------------------------------------------------------------
             alphaz_n_1_n = alphaz_n_n_1 + self.bz_n_1_n
-            alphaz_n_1_n[k] += 1
+            alphaz_n_1_n[k] += 10
         else:  # Step 6...
             # ----------------------------------------------------------------------
             # Steps 7,8: Initialize the hyper-parameters $ \\boldsymbol{\\alpha}_{n+1|n} $
@@ -297,7 +298,7 @@ class NPCLAD:
             # Steps 9,10: Initialize the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n+1|n} $
             # ----------------------------------------------------------------------
             alphaz_n_1_n = self.alphaz
-            alphaz_n_1_n[k] += 1
+            alphaz_n_1_n[k] += 10
         # Step 11...
 
         # ----------------------------------------------------------------------
@@ -342,9 +343,17 @@ class NPCLAD:
         # Step 3: Detect the anomaly
         # ----------------------------------------------------------------------
         if self.test == 1:
-            detection = (z_n_1_n is not None and np.count_nonzero(z_n_1_n != z_n_1) == 0, probz_n_1_n)
+            # Perform test 1: check if the predicted observation mismatches the encoded observation
+            if z_n_1_n is not None and np.count_nonzero(z_n_1_n != z_n_1) != 0:
+                detection = (True, 1 - probz_n_1_n)
+            else:
+                detection = (False, probz_n_1_n)
         elif self.test == 2:
-            detection = (self.bz_n_1_n[k] == 1, 1 / np.count_nonzero(self.bz_n_1_n))
+            # Perform test 2: check if the encoded observation (index) mismatches all predicted hypothesis
+            if self.bz_n_1_n[k] == 0:
+                detection = (True, 1 - np.count_nonzero(self.bz_n_1_n)/self.cs)
+            else:
+                detection = (False, np.count_nonzero(self.bz_n_1_n)/self.cs)
         else:
             raise Exception("Invalid AD test type.")
 
@@ -382,6 +391,7 @@ class TestNPCLAD(unittest.TestCase):
 
     # Time-series parameters
     time_series_length = 100
+    time_indexes = range(0, time_series_length)
 
     @classmethod
     def setUpClass(cls):
@@ -391,7 +401,9 @@ class TestNPCLAD(unittest.TestCase):
         cls.detector = NPCLAD(cs=cls.cs, ps=cls.ps, alphas=cls.alphas,
                               az=cls.az, bz=cls.bz, cz=cls.cz, dz=cls.dz, pz=cls.pz, alphaz=cls.alphaz, test=cls.test)
         cls.test_statistics = {"average_detect_time": 0.0,
-                               "elapsed_detect_time": 0.0}
+                               "elapsed_detect_time": 0.0,
+                               "time_series": None,
+                               "anomalies": None}
 
     @classmethod
     def tearDownClass(cls):
@@ -399,8 +411,37 @@ class TestNPCLAD(unittest.TestCase):
         Tear down method: print test statistics.
         """
         print('Elapsed time to detect {0} patterns: {1:.2e} seconds'.format(cls.time_series_length,
-                                                                            cls.test_statistics["elapsed_learn_time"]))
-        print('Average learn time: {:.2e} seconds'.format(cls.test_statistics["average_learn_time"]))
+                                                                            cls.test_statistics["elapsed_detect_time"]))
+        print('Average learn time: {:.1} milliseconds'.format(cls.test_statistics["average_detect_time"]))
+
+        time_series_name = cls.test_statistics["time_series_name"]
+        time_series = cls.test_statistics["time_series"]
+        ground_truth = cls.test_statistics["ground_truth"]
+        anomalies = cls.test_statistics["anomalies"]
+        scores = cls.test_statistics["scores"]
+
+        plt.figure(1)
+        plt.subplot(411)
+        plt.plot(time_series, 'bo--')
+        plt.grid(axis='x', color='0.95')
+        plt.title(time_series_name)
+        plt.subplot(412)
+        plt.yticks([1.0, 0.0], ["True", "False"])
+        cmap = clrs.ListedColormap(['green', 'red'])
+        plt.scatter(x=cls.time_indexes, y=ground_truth, c=ground_truth.astype(float), marker='d', cmap=cmap)
+        plt.grid(axis='x', color='0.95')
+        plt.title('Ground-truth')
+        plt.subplot(413)
+        plt.yticks([1.0, 0.0], ["True", "False"])
+        cmap = clrs.ListedColormap(['green', 'red'])
+        plt.scatter(x=cls.time_indexes, y=anomalies, c=anomalies.astype(float), marker='d', cmap=cmap)
+        plt.grid(axis='x', color='0.95')
+        plt.title('Anomaly indicator')
+        plt.subplot(414)
+        plt.plot(100*scores, 'b-')
+        plt.grid(axis='x', color='0.95')
+        plt.title('Anomaly score (%)')
+        plt.show()
 
         cls.detector = None
         cls.test_statistics = None
@@ -433,7 +474,7 @@ class TestNPCLAD(unittest.TestCase):
 
         # Run the detector
         elapsed_time = 0
-        for n in range(0, self.time_series_length):
+        for n in self.time_indexes:
             value = time_series[n]
             t = time.time()
             anomaly, score = self.detector.handle(value)
@@ -442,7 +483,12 @@ class TestNPCLAD(unittest.TestCase):
             scores[n] = score
 
         self.test_statistics["elapsed_detect_time"] = elapsed_time
-        self.test_statistics["average_detect_time"] = elapsed_time / self.time_series_length
+        self.test_statistics["average_detect_time"] = 100 * elapsed_time / self.time_series_length
+        self.test_statistics["time_series_name"] = 'Constant-valued time-series with random spikes'
+        self.test_statistics["time_series"] = time_series
+        self.test_statistics["ground_truth"] = ground_truth
+        self.test_statistics["anomalies"] = anomalies
+        self.test_statistics["scores"] = scores
 
 
 if __name__ == '__main__':
