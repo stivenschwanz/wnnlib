@@ -34,12 +34,16 @@ class NPCLAD:
         self.cs = cs
         self.ps = ps
         self.alphas = alphas * np.ones(cs, order='C', dtype=float)
+        js = np.unique(np.random.choice(self.cs, size=self.ps, replace=False))
+        self.alphas[js] = 1
         self.az = az
         self.bz = bz
         self.cz = cz
         self.dz = dz
         self.pz = pz
         self.alphaz = alphaz * np.ones(cz, order='C', dtype=float)
+        jz = np.unique(np.random.choice(self.cz, size=self.pz, replace=False))
+        self.alphaz[jz] = 1
         self.test = test
 
         # Initialize members
@@ -146,7 +150,7 @@ class NPCLAD:
                                                 min_mem_size=1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.ps, max_recall_dist=self.ps,
                                                 default_outputs=self.alphaz)
-        self.wnn_layer2.learn(self.bs_n_1_n, self.alphaz+10*self.bz_n_1_n)
+        self.wnn_layer2.learn(self.bs_n_1_n, self.alphaz+self.bz_n_1_n)
 
         # ----------------------------------------------------------------------
         # Initialize the adaptive scalar encoder
@@ -282,7 +286,7 @@ class NPCLAD:
             # Step 5: Update the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
             # ----------------------------------------------------------------------
             alphaz_n_1_n = alphaz_n_n_1 + self.bz_n_1_n
-            alphaz_n_1_n[k] += 10
+            alphaz_n_1_n[k] += 1
         else:  # Step 6...
             # ----------------------------------------------------------------------
             # Steps 7,8: Initialize the hyper-parameters $ \\boldsymbol{\\alpha}_{n+1|n} $
@@ -293,6 +297,7 @@ class NPCLAD:
             # Steps 9,10: Initialize the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n+1|n} $
             # ----------------------------------------------------------------------
             alphaz_n_1_n = self.alphaz
+            alphaz_n_1_n[k] += 1
         # Step 11...
 
         # ----------------------------------------------------------------------
@@ -364,13 +369,13 @@ class TestNPCLAD(unittest.TestCase):
     # Model parameters
     cs = 2 ** 11
     ps = 2 ** 5
-    alphas = 2 ** -10
+    alphas = 2 ** -12
     az = 2 ** 6 + 1
     bz = 2 ** 4
     cz = 2 ** 11
     dz = 2 ** 11
     pz = 2 ** 5
-    alphaz = 2 ** -10
+    alphaz = 2 ** -12
     test = 1
     detector = None
     test_statistics = None
@@ -412,7 +417,7 @@ class TestNPCLAD(unittest.TestCase):
 
         # Build the time-series
         time_series = time_series_cte_value * np.ones(self.time_series_length, order='C', dtype=float)
-        spike_locations = np.unique(np.random.choice(self.time_series_length, number_of_spikes, replace=True))
+        spike_locations = np.unique(np.random.choice(self.time_series_length, number_of_spikes, replace=False))
         time_series[spike_locations] = spike_value
 
         # Build the ground_truth
