@@ -364,6 +364,20 @@ class NPCLAD:
 
         return detection
 
+    def memory_size(self):
+        """
+        Network memory size.
+
+        Return:
+            (float): layer 0 memory size (KB)
+            (float): layer 1 memory size (KB)
+            (float): layer 2 memory size (KB)
+        """
+        layer0_mem_size_kilobytes, _, _ = self.wnn_layer0.memory_stats()
+        layer1_mem_size_kilobytes, _, _ = self.wnn_layer1.memory_stats()
+        layer2_mem_size_kilobytes, _, _ = self.wnn_layer2.memory_stats()
+        return layer0_mem_size_kilobytes, layer1_mem_size_kilobytes, layer2_mem_size_kilobytes
+
     def debug(self, observation=None, output_value=None):
         """
         Debug node memory.
@@ -403,7 +417,10 @@ class TestNPCLAD(unittest.TestCase):
         cls.test_statistics = {"average_detect_time": 0.0,
                                "elapsed_detect_time": 0.0,
                                "time_series": None,
-                               "anomalies": None}
+                               "anomalies": None,
+                               "layer0_memory_stats": None,
+                               "layer1_memory_stats": None,
+                               "layer2_memory_stats": None}
 
     @classmethod
     def tearDownClass(cls):
@@ -419,28 +436,38 @@ class TestNPCLAD(unittest.TestCase):
         ground_truth = cls.test_statistics["ground_truth"]
         anomalies = cls.test_statistics["anomalies"]
         scores = cls.test_statistics["scores"]
+        layer0_memory_stats = cls.test_statistics["layer0_memory_stats"]
+        layer1_memory_stats = cls.test_statistics["layer1_memory_stats"]
+        layer2_memory_stats = cls.test_statistics["layer2_memory_stats"]
 
         plt.figure(1)
-        plt.subplot(411)
+        plt.subplot(511)
         plt.plot(time_series, 'bo--')
         plt.grid(axis='x', color='0.95')
         plt.title(time_series_name)
-        plt.subplot(412)
+        plt.subplot(512)
         plt.yticks([1.0, 0.0], ["True", "False"])
         cmap = clrs.ListedColormap(['green', 'red'])
         plt.scatter(x=cls.time_indexes, y=ground_truth, c=ground_truth.astype(float), marker='d', cmap=cmap)
         plt.grid(axis='x', color='0.95')
         plt.title('Ground-truth')
-        plt.subplot(413)
+        plt.subplot(513)
         plt.yticks([1.0, 0.0], ["True", "False"])
         cmap = clrs.ListedColormap(['green', 'red'])
         plt.scatter(x=cls.time_indexes, y=anomalies, c=anomalies.astype(float), marker='d', cmap=cmap)
         plt.grid(axis='x', color='0.95')
         plt.title('Anomaly indicator')
-        plt.subplot(414)
+        plt.subplot(514)
         plt.plot(100*scores, 'b-')
         plt.grid(axis='x', color='0.95')
         plt.title('Anomaly score (%)')
+        plt.subplot(515)
+        plt.plot(layer0_memory_stats, 'r-',  label='Layer 0')
+        plt.plot(layer1_memory_stats, 'g-',  label='Layer 1')
+        plt.plot(layer2_memory_stats, 'b-',  label='Layer 2')
+        plt.grid(axis='x', color='0.95')
+        plt.title('Memory usage (MB)')
+        plt.legend(loc="upper right")
         plt.show()
 
         cls.detector = None
@@ -469,6 +496,11 @@ class TestNPCLAD(unittest.TestCase):
         anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
         scores = np.zeros(self.time_series_length, order='C', dtype=float)
 
+        # Memory statistics
+        layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
+        layer1_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
+        layer2_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
+
         # Initialize the detector
         self.detector.initialize()
 
@@ -481,7 +513,9 @@ class TestNPCLAD(unittest.TestCase):
             elapsed_time += time.time() - t
             anomalies[n] = anomaly
             scores[n] = score
+            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
 
+        # Collect the statistics
         self.test_statistics["elapsed_detect_time"] = elapsed_time
         self.test_statistics["average_detect_time"] = 100 * elapsed_time / self.time_series_length
         self.test_statistics["time_series_name"] = 'Constant-valued time-series with random spikes'
@@ -489,6 +523,65 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["ground_truth"] = ground_truth
         self.test_statistics["anomalies"] = anomalies
         self.test_statistics["scores"] = scores
+        self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
+        self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
+        self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
+
+    def test_1_sin_time_series_with_spike_anomalies(self):
+        """
+        Test case 1: Sinusoidal time-series with abnormal spikes.
+        """
+
+        # Time-series parameters
+        time_series_amplitude_value = 10
+        time_series_frequency = 2*np.pi*0.2
+        time_series_phase = 0
+        number_of_spikes = 5
+        spike_value = 100
+
+        # Build the time-series
+        time_series = time_series_amplitude_value * np.sin(np.array(self.time_indexes, order='C', dtype=float) * time_series_frequency + time_series_phase)
+        spike_locations = np.unique(np.random.choice(self.time_series_length, number_of_spikes, replace=False))
+        time_series[spike_locations] = spike_value
+
+        # Build the ground_truth
+        ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
+        ground_truth[spike_locations] = True
+
+        # Output vectors
+        anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
+        scores = np.zeros(self.time_series_length, order='C', dtype=float)
+
+        # Memory statistics
+        layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
+        layer1_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
+        layer2_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
+
+        # Initialize the detector
+        self.detector.initialize()
+
+        # Run the detector
+        elapsed_time = 0
+        for n in self.time_indexes:
+            value = time_series[n]
+            t = time.time()
+            anomaly, score = self.detector.handle(value)
+            elapsed_time += time.time() - t
+            anomalies[n] = anomaly
+            scores[n] = score
+            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
+
+        # Collect the statistics
+        self.test_statistics["elapsed_detect_time"] = elapsed_time
+        self.test_statistics["average_detect_time"] = 100 * elapsed_time / self.time_series_length
+        self.test_statistics["time_series_name"] = 'Sinusoidal time-series with random spikes'
+        self.test_statistics["time_series"] = time_series
+        self.test_statistics["ground_truth"] = ground_truth
+        self.test_statistics["anomalies"] = anomalies
+        self.test_statistics["scores"] = scores
+        self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
+        self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
+        self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
 
 
 if __name__ == '__main__':

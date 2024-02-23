@@ -157,6 +157,21 @@ class VGRAMNode:
                 self.num_valid_pairs += int(1)
                 return empty_entry_idx
 
+    def memory_stats(self):
+        """
+        Node memory statistics.
+
+        Return:
+            (float): node memory size (KB)
+            (float): node memory capacity (KB)
+            (float): node memory usage (%)
+        """
+        pair_mem_size_bytes = float(self.pattern_length + 4)
+        node_mem_size_kilobytes = self.num_valid_pairs * pair_mem_size_bytes / 1024
+        node_mem_capacity_kilobytes = self.max_mem_size * pair_mem_size_bytes / 1024
+        node_mem_usage_percent = node_mem_size_kilobytes/node_mem_capacity_kilobytes
+        return node_mem_size_kilobytes, node_mem_capacity_kilobytes, node_mem_usage_percent
+
     def debug(self, input_pattern=None, output_value=None):
         """
         Debug node memory.
