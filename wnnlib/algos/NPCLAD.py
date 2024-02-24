@@ -73,16 +73,16 @@ class NPCLAD:
         self.cs = cs
         self.ps = ps
         self.alphas = alphas * np.ones(cs, order='C', dtype=float)
-        js = np.unique(np.random.choice(self.cs, size=self.ps, replace=False))
-        self.alphas[js] = 1
+        #js = np.unique(np.random.choice(self.cs, size=self.ps, replace=False))
+        #self.alphas[js] = 1
         self.az = az
         self.bz = bz
         self.cz = cz
         self.dz = dz
         self.pz = pz
         self.alphaz = alphaz * np.ones(cz, order='C', dtype=float)
-        jz = np.unique(np.random.choice(self.cz, size=self.pz, replace=False))
-        self.alphaz[jz] = 1
+        #jz = np.unique(np.random.choice(self.cz, size=self.pz, replace=False))
+        #self.alphaz[jz] = 1
         self.test = test
         self.delta = delta
         self.learning_rate = learning_rate
@@ -150,7 +150,7 @@ class NPCLAD:
 
         # ----------------------------------------------------------------------
         # Draw the prior posterior $ \\boldsymbol{\pi}_{n|n-1} $ from the Dirichlet
-        # distribution $ Dir \left( c_{s}; \\boldsymbol{\\alpha}_{0} \right) $
+        # distribution $ Dir \\left( c_{s}; \\boldsymbol{\\alpha}_{0} \\right) $
         # ----------------------------------------------------------------------
         pis_0 = np.random.dirichlet(self.alphas)
 
@@ -176,7 +176,8 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         self.wnn_layer1 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs,
                                                 min_mem_size=1, max_mem_size=2 ** 11,
-                                                min_learn_dist=self.bz+self.ps/2, max_recall_dist=self.bz+self.ps/2,
+                                                #min_learn_dist=self.bz+self.ps/2, max_recall_dist=self.bz+self.ps/2,
+                                                min_learn_dist=16, max_recall_dist=16,
                                                 default_outputs=self.alphas)
         self.wnn_layer1.learn(np.concatenate((self.z_n, self.bs_n_n_1)), self.alphas+self.bs_n_1_n)
 
@@ -192,7 +193,8 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs,
                                                 min_mem_size=1, max_mem_size=2 ** 11,
-                                                min_learn_dist=self.ps/2, max_recall_dist=self.ps/2,
+                                                #min_learn_dist=self.ps/2, max_recall_dist=self.ps/2,
+                                                min_learn_dist=16, max_recall_dist=16,
                                                 default_outputs=self.alphaz)
         self.wnn_layer2.learn(self.bs_n_1_n, self.alphaz+self.learning_rate*self.bz_n_1_n)
 
@@ -406,20 +408,12 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         if self.test == 1:
             # Perform test 1: check if the predicted observation mismatches the encoded observation
-            if z_n_1_n is not None and np.count_nonzero(z_n_1_n != z_n_1) > self.delta:
-                anomaly_n_1 = True
-                score_n_1 = 1 - p_n_1_n
-            else:
-                anomaly_n_1 = False
-                score_n_1 = p_n_1_n
+            anomaly_n_1 = z_n_1_n is not None and np.count_nonzero(z_n_1_n != z_n_1) > self.delta
+            score_n_1 = 1 - p_n_1_n
         elif self.test == 2:
             # Perform test 2: check if the encoded observation (index) mismatches all predicted hypothesis
-            if self.bz_n_1_n[k_n_1] == 0:
-                anomaly_n_1 = True
-                score_n_1 = 1 - np.count_nonzero(self.bz_n_1_n)/self.cs
-            else:
-                anomaly_n_1 = False
-                score_n_1 = np.count_nonzero(self.bz_n_1_n)/self.cs
+            anomaly_n_1 = self.bz_n_1_n[k_n_1] == 0
+            score_n_1 = 1 - np.count_nonzero(self.bz_n_1_n)/self.cs
         else:
             raise Exception("Invalid AD test type.")
 
@@ -473,7 +467,7 @@ class TestNPCLAD(unittest.TestCase):
     alphaz = 2 ** -12
     test = 1
     delta = 8
-    learning_rate = 10
+    learning_rate = 8
     detector = None
     test_statistics = None
 
@@ -512,8 +506,9 @@ class TestNPCLAD(unittest.TestCase):
 
         plt.figure(1)
         plt.subplot(511)
-        plt.plot(time_series, 'bo--')
-        plt.plot(predictions, 'm.--')
+        plt.plot(time_series, 'bo--',  label='Time-series')
+        plt.plot(predictions, 'm.--',  label='Predictions')
+        plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length/20))
         plt.grid(axis='x', color='0.95')
         plt.title(time_series_name)
         plt.legend(loc="upper right")
@@ -521,22 +516,26 @@ class TestNPCLAD(unittest.TestCase):
         plt.yticks([1.0, 0.0], ["True", "False"])
         cmap = clrs.ListedColormap(['green', 'red'])
         plt.scatter(x=cls.time_indexes, y=ground_truth, c=ground_truth.astype(float), marker='d', cmap=cmap)
+        plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length/20))
         plt.grid(axis='x', color='0.95')
         plt.title('Ground-truth')
         plt.subplot(513)
         plt.yticks([1.0, 0.0], ["True", "False"])
         cmap = clrs.ListedColormap(['green', 'red'])
         plt.scatter(x=cls.time_indexes, y=anomalies, c=anomalies.astype(float), marker='d', cmap=cmap)
+        plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length/20))
         plt.grid(axis='x', color='0.95')
         plt.title('Anomaly indicator')
         plt.subplot(514)
         plt.plot(100*scores, 'b-')
+        plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length/20))
         plt.grid(axis='x', color='0.95')
         plt.title('Anomaly score (%)')
         plt.subplot(515)
         plt.plot(layer0_memory_stats, 'r-',  label='Layer 0')
         plt.plot(layer1_memory_stats, 'g-',  label='Layer 1')
         plt.plot(layer2_memory_stats, 'b-',  label='Layer 2')
+        plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length/20))
         plt.grid(axis='x', color='0.95')
         plt.title('Memory usage (MB)')
         plt.legend(loc="upper right")
@@ -610,7 +609,7 @@ class TestNPCLAD(unittest.TestCase):
         # Time-series parameters
         time_series_amplitude = 15
         time_series_offset = 15
-        time_series_frequency = 2*np.pi/100
+        time_series_frequency = 2*np.pi/10
         time_series_phase = 0
         number_of_spikes = 3
         spike_value = 100

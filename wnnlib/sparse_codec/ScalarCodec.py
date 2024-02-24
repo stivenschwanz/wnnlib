@@ -44,7 +44,7 @@ class ScalarCodec:
         # ----------------------------------------------------------------------
 
         # Compute the number of buckets
-        self.number_of_buckets =  self.total_number_of_bits - self.number_of_active_bits + 1
+        self.number_of_buckets = self.total_number_of_bits - self.number_of_active_bits + 1
 
         # Compute the range
         self.range = self.max_value - self.min_value
@@ -111,7 +111,7 @@ class TestScalarCodec(unittest.TestCase):
         for input_value in input_values:
             print('input_value=', input_value)
             sparse_vector = scalar_codec.encode(input_value)
-            #print('sparce_vector=', sparse_vector)
+            print('sparce_vector=', sparse_vector)
             decoded_value = scalar_codec.decode(sparse_vector)
             print('decoded_value=', decoded_value)
 
