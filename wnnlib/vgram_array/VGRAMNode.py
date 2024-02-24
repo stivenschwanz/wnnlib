@@ -188,11 +188,11 @@ class VGRAMNode:
             self.axs[1, 1].axes.yaxis.set_visible(False)
         # Show stored patterns
         self.axs[0, 0].clear()
-        self.axs[0, 0].imshow(self.input_patterns, cmap='gray',
+        self.axs[0, 0].imshow(self.input_patterns[self.valid_pairs, :], cmap='gray',
                               vmin=0, vmax=1, interpolation='nearest', aspect='auto')
         # Show stored output values
         self.axs[0, 1].clear()
-        self.axs[0, 1].imshow(np.expand_dims(self.output_values, axis=1), cmap='gray',
+        self.axs[0, 1].imshow(np.expand_dims(self.output_values[self.valid_pairs], axis=1), cmap='gray',
                               vmin=0, vmax=15, interpolation='nearest', aspect='auto')
         # Show input pattern (if given)
         self.axs[1, 0].clear()

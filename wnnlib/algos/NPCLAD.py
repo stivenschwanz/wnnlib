@@ -73,8 +73,8 @@ class NPCLAD:
         self.cs = cs
         self.ps = ps
         self.alphas = alphas * np.ones(cs, order='C', dtype=float)
-        #js = np.unique(np.random.choice(self.cs, size=self.ps, replace=False))
-        #self.alphas[js] = 1
+        js = np.unique(np.random.choice(self.cs, size=self.ps, replace=False))
+        self.alphas[js] = 1
         self.az = az
         self.bz = bz
         self.cz = cz
@@ -444,10 +444,13 @@ class NPCLAD:
         layer0_mem_size_megabytes = layer0_mem_size_kilobytes / 1024
         return layer0_mem_size_megabytes, layer1_mem_size_megabytes, layer2_mem_size_megabytes
 
-    def debug(self, observation=None, output_value=None):
+    def debug(self):
         """
-        Debug node memory.
+        Debug network.
         """
+        self.wnn_layer0.debug()
+        self.wnn_layer1.debug()
+        self.wnn_layer2.debug()
 
 
 class TestNPCLAD(unittest.TestCase):
@@ -459,11 +462,11 @@ class TestNPCLAD(unittest.TestCase):
     cs = 2 ** 11
     ps = 2 ** 5
     alphas = 2 ** -12
-    az = 2 ** 6 + 1
+    az = 2 ** 6
     bz = 2 ** 3
     cz = 2 ** 11
-    dz = 2 ** 11
-    pz = 2 ** 5
+    dz = 2 ** 9
+    pz = 2 ** 4
     alphaz = 2 ** -12
     test = 1
     delta = 8
@@ -504,7 +507,7 @@ class TestNPCLAD(unittest.TestCase):
         layer1_memory_stats = cls.test_statistics["layer1_memory_stats"]
         layer2_memory_stats = cls.test_statistics["layer2_memory_stats"]
 
-        plt.figure(1)
+        plt.subplots()
         plt.subplot(511)
         plt.plot(time_series, 'bo--',  label='Time-series')
         plt.plot(predictions, 'm.--',  label='Predictions')
@@ -587,6 +590,7 @@ class TestNPCLAD(unittest.TestCase):
             scores[n] = score
             predictions[n] = predicted_value
             layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
+            self.detector.debug()
 
         # Collect the statistics
         self.test_statistics["elapsed_detect_time"] = elapsed_time
@@ -648,6 +652,7 @@ class TestNPCLAD(unittest.TestCase):
             scores[n] = score
             predictions[n] = predicted_value
             layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
+            self.detector.debug()
 
         # Collect the statistics
         self.test_statistics["elapsed_detect_time"] = elapsed_time
