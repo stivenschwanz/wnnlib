@@ -5,7 +5,7 @@ import matplotlib.colors as clrs
 import unittest
 import time
 from wnnlib.vgram_array import VGRAMArray, VGRAMNode
-from nupic.encoders import AdaptiveScalarEncoder
+from wnnlib.sparse_codec import ScalarCodec
 
 
 class NPCLAD:
@@ -14,12 +14,12 @@ class NPCLAD:
     using a non-parametric Bayesian procedure to build a suitable model of the underlying stochastic process emitting
     the observations.
     """
-    def __init__(self, cs, ps, alphas, az, bz, cz, dz, pz, alphaz, test, delta=0, weight=10):
+    def __init__(self, cs, ps, alphas, az, bz, cz, dz, pz, alphaz, test, delta=0, learning_rate=1):
         """
         Initialize the nP-CLAD detector using the nine hyperparameters.
 
         Parameters:
-            cs (int): Maximum number of distinct hidden vectors (symbols) in $ \\boldsymbol{\\Omega}_{s} $.
+            cs (int): Maximum number of distinct hidden state vectors (symbols) in $ \\boldsymbol{\\Omega}_{s} $.
             ps (int): Maximum number of equiprobable hypothesis in the belief $ {\\bf b}_{n|n-1} $, $ \\forall n > 0 $.
             alphas (float): Pseudo-count parameter for the prior Dirichlet distribution
                             $ Dir(c_{s}; \\boldsymbol{\\alpha}_{0}) $.
@@ -33,11 +33,43 @@ class NPCLAD:
                             $ Dir(c_{z}; \\tilde\\boldsymbol{\\alpha}_{0}) $.
             test (int): Check if the observation mismatches the predicted observation (AD test 1) or all
                         predicted symbols (AD test 2).
-            delta (int): Maximum Hamming distance between the predicted observation and the actual observation (test 1)
-            weight (int): Weight to boost the pseudo-counts during learning
+            delta (int): Maximum Hamming distance between the predicted observation and the actual observation (test 1).
+            learning_rate (int): Pseudo-counts learning rate (use this parameter to boost the pseudo-counts updating).
         """
 
+        # ----------------------------------------------------------------------
+        # Check parameters
+        # ----------------------------------------------------------------------
+
+        # Check maximum number of distinct hidden state vectors against the maximum
+        # number of equiprobable hypothesis in the state belief
+        assert cs > ps > 0
+
+        # Check pseudo-count parameter for the prior Dirichlet distribution
+        assert alphas > 0
+
+        # Check number of activated bits against the minimum distance between sparsely encoded observations
+        assert az > bz > 0
+
+        # Check maximum number of distinct encoded observations against the maximum
+        # number of equiprobable hypothesis in the observation belief
+        assert cz > pz > 0
+
+        # Check pseudo-count parameter for the prior Dirichlet distribution
+        assert alphaz > 0
+
+        # Check the test type
+        assert test == 1 or test == 2
+
+        # Check the AD threshold for test 1
+        assert delta > 0
+
+        # Check the learning rate
+        assert learning_rate > 0
+
+        # ----------------------------------------------------------------------
         # Save the parameters
+        # ----------------------------------------------------------------------
         self.cs = cs
         self.ps = ps
         self.alphas = alphas * np.ones(cs, order='C', dtype=float)
@@ -53,9 +85,11 @@ class NPCLAD:
         self.alphaz[jz] = 1
         self.test = test
         self.delta = delta
-        self.weight = weight
+        self.learning_rate = learning_rate
 
+        # ----------------------------------------------------------------------
         # Initialize members
+        # ----------------------------------------------------------------------
         self.bs_n_n_1 = None
         self.bs_n_1_n = None
         self.bz_n_1_n = None
@@ -112,7 +146,7 @@ class NPCLAD:
         self.wnn_layer0 = VGRAMNode.VGRAMNode(pattern_length=self.dz,
                                               min_mem_size=1, max_mem_size=2 ** 11,
                                               min_learn_dist=0, max_recall_dist=0)
-        k = self.wnn_layer0.learn(self.z_n, 1)
+        k_n = self.wnn_layer0.learn(self.z_n, 1)
 
         # ----------------------------------------------------------------------
         # Draw the prior posterior $ \\boldsymbol{\pi}_{n|n-1} $ from the Dirichlet
@@ -123,13 +157,13 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         # Draw up to $ p_{s} $ unique samples from the prior posterior $ \\boldsymbol{\pi}_{0|-1} $
         # ----------------------------------------------------------------------
-        ells = np.unique(np.random.choice(self.cs, size=self.ps, replace=True, p=pis_0))
+        ls_0 = np.unique(np.random.choice(self.cs, size=self.ps, replace=True, p=pis_0))
 
         # ----------------------------------------------------------------------
         # Build the prior belief $ {\\bf b}_{0|-1} $
         # ----------------------------------------------------------------------
         self.bs_n_n_1 = np.zeros(self.cs, order='C', dtype=bool)
-        self.bs_n_n_1[ells] = True
+        self.bs_n_n_1[ls_0] = True
 
         # ----------------------------------------------------------------------
         # Initialize the predicted state belief as the prior belief such that the
@@ -151,7 +185,7 @@ class NPCLAD:
         # corresponding to the same symbol as the previous observation
         # ----------------------------------------------------------------------
         self.bz_n_1_n = np.zeros(self.cz, order='C', dtype=bool)
-        self.bz_n_1_n[k] = True
+        self.bz_n_1_n[k_n] = True
 
         # ----------------------------------------------------------------------
         # Initialize layer 2
@@ -160,12 +194,13 @@ class NPCLAD:
                                                 min_mem_size=1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.ps/2, max_recall_dist=self.ps/2,
                                                 default_outputs=self.alphaz)
-        self.wnn_layer2.learn(self.bs_n_1_n, self.alphaz+self.weight*self.bz_n_1_n)
+        self.wnn_layer2.learn(self.bs_n_1_n, self.alphaz+self.learning_rate*self.bz_n_1_n)
 
         # ----------------------------------------------------------------------
         # Initialize the adaptive scalar encoder
         # ----------------------------------------------------------------------
-        self.encoder = AdaptiveScalarEncoder(w=self.az, n=self.dz)
+        self.encoder = ScalarCodec.ScalarCodec(min_value=0, max_value=100,
+                                               total_number_of_bits=self.dz, number_of_active_bits=self.az)
 
     def encode(self, y_n_1):
         """
@@ -189,6 +224,22 @@ class NPCLAD:
             k_n_1 = self.wnn_layer0.learn(z_n_1, 1)
 
         return z_n_1, k_n_1
+
+    def decode(self, z_n_1_n):
+        """
+        Decode the predicted observation $ \\hat{\\bf y}_{n+1|n} $ at instant $ n+1 $.
+
+        Parameters:
+             z_n_1_n (bool[]): Sparsely encoded predicted observation vector at instant $ n + 1 $.
+
+        Return:
+            (float[]): Dense observation vector $ \\hat{\\bf y}_{n+1|n} $ at instant $ n+1 $.
+        """
+
+        # Encode the observation using the adaptive sparse encoder
+        y_n_1_n = self.encoder.decode(z_n_1_n)
+
+        return y_n_1_n
 
     def predict(self):
         """
@@ -297,7 +348,7 @@ class NPCLAD:
             # Step 5: Update the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
             # ----------------------------------------------------------------------
             alphaz_n_1_n = alphaz_n_n_1 + self.bz_n_1_n
-            alphaz_n_1_n[k_n_1] += self.weight
+            alphaz_n_1_n[k_n_1] += self.learning_rate
         else:  # Step 6...
             # ----------------------------------------------------------------------
             # Steps 7,8: Initialize the hyper-parameters $ \\boldsymbol{\\alpha}_{n+1|n} $
@@ -308,7 +359,7 @@ class NPCLAD:
             # Steps 9,10: Initialize the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n+1|n} $
             # ----------------------------------------------------------------------
             alphaz_n_1_n = self.alphaz
-            alphaz_n_1_n[k_n_1] += self.weight
+            alphaz_n_1_n[k_n_1] += self.learning_rate
         # Step 11...
 
         # ----------------------------------------------------------------------
@@ -333,6 +384,7 @@ class NPCLAD:
         Returns:
             (bool): True if the current observation is an anomaly, false otherwise.
             (float): Anomaly score indicating how likely the current observation is an anomaly.
+            (float[]): Predicted dense observation vector $ \\hat{\bf y}_{n+1|n} = \\boldsymbol{\\Omega}_{y} $.
         """
 
         # ----------------------------------------------------------------------
@@ -350,43 +402,53 @@ class NPCLAD:
         z_n_1_n, k_n_1_n, p_n_1_n = self.predict()
 
         # ----------------------------------------------------------------------
-        # Step 3: Detect the anomaly
+        # Step 3,4: Detect the anomaly and compute the corresponding score
         # ----------------------------------------------------------------------
         if self.test == 1:
             # Perform test 1: check if the predicted observation mismatches the encoded observation
             if z_n_1_n is not None and np.count_nonzero(z_n_1_n != z_n_1) > self.delta:
-                detection = (True, 1 - p_n_1_n)
+                anomaly_n_1 = True
+                score_n_1 = 1 - p_n_1_n
             else:
-                detection = (False, p_n_1_n)
+                anomaly_n_1 = False
+                score_n_1 = p_n_1_n
         elif self.test == 2:
             # Perform test 2: check if the encoded observation (index) mismatches all predicted hypothesis
             if self.bz_n_1_n[k_n_1] == 0:
-                detection = (True, 1 - np.count_nonzero(self.bz_n_1_n)/self.cs)
+                anomaly_n_1 = True
+                score_n_1 = 1 - np.count_nonzero(self.bz_n_1_n)/self.cs
             else:
-                detection = (False, np.count_nonzero(self.bz_n_1_n)/self.cs)
+                anomaly_n_1 = False
+                score_n_1 = np.count_nonzero(self.bz_n_1_n)/self.cs
         else:
             raise Exception("Invalid AD test type.")
 
         # ----------------------------------------------------------------------
-        # Step 4: Learn the non-parametric model
+        # Step 5: Learn the non-parametric model
         # ----------------------------------------------------------------------
         self.learn(z_n_1, k_n_1)
 
-        return detection
+        # ----------------------------------------------------------------------
+        # Step 6: Decode the predicted observation as $ \hat{\bf y}_{n+1|n} $
+        # ----------------------------------------------------------------------
+        y_n_1_n = self.decode(z_n_1_n)
+
+        return anomaly_n_1, score_n_1, y_n_1_n
 
     def memory_size(self):
         """
         Network memory size.
 
         Return:
-            (float): layer 0 memory size (KB)
-            (float): layer 1 memory size (KB)
-            (float): layer 2 memory size (KB)
+            (float): layer 0 memory size (MB)
+            (float): layer 1 memory size (MB)
+            (float): layer 2 memory size (MB)
         """
         layer0_mem_size_kilobytes, _, _ = self.wnn_layer0.memory_stats()
-        layer1_mem_size_kilobytes, _, _ = self.wnn_layer1.memory_stats()
-        layer2_mem_size_kilobytes, _, _ = self.wnn_layer2.memory_stats()
-        return layer0_mem_size_kilobytes, layer1_mem_size_kilobytes, layer2_mem_size_kilobytes
+        layer1_mem_size_megabytes, _, _ = self.wnn_layer1.memory_stats()
+        layer2_mem_size_megabytes, _, _ = self.wnn_layer2.memory_stats()
+        layer0_mem_size_megabytes = layer0_mem_size_kilobytes / 1024
+        return layer0_mem_size_megabytes, layer1_mem_size_megabytes, layer2_mem_size_megabytes
 
     def debug(self, observation=None, output_value=None):
         """
@@ -411,7 +473,7 @@ class TestNPCLAD(unittest.TestCase):
     alphaz = 2 ** -12
     test = 1
     delta = 8
-    weight = 10
+    learning_rate = 10
     detector = None
     test_statistics = None
 
@@ -426,7 +488,7 @@ class TestNPCLAD(unittest.TestCase):
         """
         cls.detector = NPCLAD(cs=cls.cs, ps=cls.ps, alphas=cls.alphas,
                               az=cls.az, bz=cls.bz, cz=cls.cz, dz=cls.dz, pz=cls.pz, alphaz=cls.alphaz,
-                              test=cls.test, delta=cls.delta, weight=cls.weight)
+                              test=cls.test, delta=cls.delta, learning_rate=cls.learning_rate)
         cls.test_statistics = {}
 
     @classmethod
@@ -443,6 +505,7 @@ class TestNPCLAD(unittest.TestCase):
         ground_truth = cls.test_statistics["ground_truth"]
         anomalies = cls.test_statistics["anomalies"]
         scores = cls.test_statistics["scores"]
+        predictions = cls.test_statistics["predictions"]
         layer0_memory_stats = cls.test_statistics["layer0_memory_stats"]
         layer1_memory_stats = cls.test_statistics["layer1_memory_stats"]
         layer2_memory_stats = cls.test_statistics["layer2_memory_stats"]
@@ -450,8 +513,10 @@ class TestNPCLAD(unittest.TestCase):
         plt.figure(1)
         plt.subplot(511)
         plt.plot(time_series, 'bo--')
+        plt.plot(predictions, 'm.--')
         plt.grid(axis='x', color='0.95')
         plt.title(time_series_name)
+        plt.legend(loc="upper right")
         plt.subplot(512)
         plt.yticks([1.0, 0.0], ["True", "False"])
         cmap = clrs.ListedColormap(['green', 'red'])
@@ -487,7 +552,7 @@ class TestNPCLAD(unittest.TestCase):
 
         # Time-series parameters
         time_series_cte_value = 10
-        number_of_spikes = 5
+        number_of_spikes = 3
         spike_value = 100
 
         # Build the time-series
@@ -502,6 +567,7 @@ class TestNPCLAD(unittest.TestCase):
         # Output vectors
         anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
         scores = np.zeros(self.time_series_length, order='C', dtype=float)
+        predictions = np.zeros(self.time_series_length, order='C', dtype=float)
 
         # Memory statistics
         layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
@@ -516,10 +582,11 @@ class TestNPCLAD(unittest.TestCase):
         for n in self.time_indexes:
             value = time_series[n]
             t = time.time()
-            anomaly, score = self.detector.handle(value)
+            anomaly, score, predicted_value = self.detector.handle(value)
             elapsed_time += time.time() - t
             anomalies[n] = anomaly
             scores[n] = score
+            predictions[n] = predicted_value
             layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
 
         # Collect the statistics
@@ -530,6 +597,7 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["ground_truth"] = ground_truth
         self.test_statistics["anomalies"] = anomalies
         self.test_statistics["scores"] = scores
+        self.test_statistics["predictions"] = predictions
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
@@ -540,11 +608,11 @@ class TestNPCLAD(unittest.TestCase):
         """
 
         # Time-series parameters
-        time_series_amplitude = 10
-        time_series_offset = 10
-        time_series_frequency = 2*np.pi/5
+        time_series_amplitude = 15
+        time_series_offset = 15
+        time_series_frequency = 2*np.pi/100
         time_series_phase = 0
-        number_of_spikes = 5
+        number_of_spikes = 3
         spike_value = 100
 
         # Build the time-series
@@ -560,6 +628,7 @@ class TestNPCLAD(unittest.TestCase):
         # Output vectors
         anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
         scores = np.zeros(self.time_series_length, order='C', dtype=float)
+        predictions = np.zeros(self.time_series_length, order='C', dtype=float)
 
         # Memory statistics
         layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
@@ -574,10 +643,11 @@ class TestNPCLAD(unittest.TestCase):
         for n in self.time_indexes:
             value = time_series[n]
             t = time.time()
-            anomaly, score = self.detector.handle(value)
+            anomaly, score, predicted_value = self.detector.handle(value)
             elapsed_time += time.time() - t
             anomalies[n] = anomaly
             scores[n] = score
+            predictions[n] = predicted_value
             layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
 
         # Collect the statistics
@@ -588,6 +658,7 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["ground_truth"] = ground_truth
         self.test_statistics["anomalies"] = anomalies
         self.test_statistics["scores"] = scores
+        self.test_statistics["predictions"] = predictions
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
