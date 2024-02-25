@@ -1,6 +1,7 @@
 import unittest
 from numpy import random
 import numpy as np
+from obfuskey import Obfuskey, alphabets
 from wnnlib.BitUtils import BitUtils
 
 
@@ -10,7 +11,7 @@ class ScalarCodec:
 
     """
 
-    def __init__(self, min_value, max_value, total_number_of_bits, number_of_active_bits):
+    def __init__(self, min_value, max_value, total_number_of_bits, number_of_active_bits, obfuscate=False):
         """
         Initialize the sparse codec.
 
@@ -19,6 +20,7 @@ class ScalarCodec:
             max_value (float): Maximum allowed value to encode.
             total_number_of_bits (int): Sparse binary representation length.
             number_of_active_bits (int): Number of active bits in the sparse representation.
+            obfuscate (bool): Use obfuscate lib.
         """
 
         # ----------------------------------------------------------------------
@@ -90,7 +92,7 @@ class ScalarCodec:
         active_bit_indexes = np.asarray(np.nonzero(sparse_vector))[0]
 
         mean_active_bit_index = np.mean(active_bit_indexes)
-        initial_active_bit_index = np.int(np.clip(mean_active_bit_index - self.number_of_active_bits/2, 0, self.total_number_of_bits))
+        initial_active_bit_index = int(np.clip(mean_active_bit_index - self.number_of_active_bits/2, 0, self.total_number_of_bits))
         decoded_value = initial_active_bit_index * float(self.range) / float(self.number_of_buckets) + self.min_value
 
         return decoded_value

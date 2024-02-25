@@ -149,11 +149,12 @@ class VGRAMArray:
             # win.overrideredirect(1)  # draws a completely frameless window
 
         self.ax.clear()
-        self.ax.imshow(self.output_values.reshape(self.debug_dims), cmap='gray', vmin=0, vmax=15, interpolation='nearest', aspect='auto')
+        self.ax.imshow(self.output_values.reshape(self.debug_dims), cmap='gray', vmin=np.min(self.output_values),
+                       vmax=np.max(self.output_values), interpolation='nearest', aspect='auto')
 
         self.fig.tight_layout()
         plt.show(block=False)
-        plt.pause(0.00001)
+        plt.pause(0.01)
 
 
 class TestVGRAMArray(unittest.TestCase):
