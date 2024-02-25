@@ -72,16 +72,16 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         self.cs = cs
         self.ps = ps
-        self.alphas = alphas * np.ones(cs, order='C', dtype=float)
-        js = np.unique(np.random.choice(self.cs, size=self.ps, replace=False))
-        self.alphas[js] = 1
+        self.alphas_0 = alphas * np.ones(cs, order='C', dtype=float)
+        #js = np.unique(np.random.choice(self.cs, size=self.ps, replace=True))
+        #self.alphas[js] = 1
         self.az = az
         self.bz = bz
         self.cz = cz
         self.dz = dz
         self.pz = pz
-        self.alphaz = alphaz * np.ones(cz, order='C', dtype=float)
-        #jz = np.unique(np.random.choice(self.cz, size=self.pz, replace=False))
+        self.alphaz_0 = alphaz * np.ones(cz, order='C', dtype=float)
+        #jz = np.unique(np.random.choice(self.cz, size=self.pz, replace=True))
         #self.alphaz[jz] = 1
         self.test = test
         self.delta = delta
@@ -107,24 +107,28 @@ class NPCLAD:
         # Clean up parameters
         self.cs = None
         self.ps = None
-        self.alphas = None
+        self.alphas_0 = None
         self.az = None
         self.bz = None
         self.cz = None
         self.dz = None
         self.pz = None
-        self.alphaz = None
+        self.alphaz_0 = None
         self.test = None
         self.delta = None
 
         # Clean up members
+        self.bs_n_1_n_2 = None
         self.bs_n_n_1 = None
         self.bs_n_1_n = None
         self.bz_n_1_n = None
         self.wnn_layer0 = None
         self.wnn_layer1 = None
         self.wnn_layer2 = None
+        self.z_n_1 = None
+        self.k_n_1 = None
         self.z_n = None
+        self.k_n = None
         self.encoder = None
 
     def initialize(self):
@@ -133,73 +137,83 @@ class NPCLAD:
         """
 
         # ----------------------------------------------------------------------
-        # Initialize the previous encoded observation by activating up to $ a_{z} $
-        # randomly chosen bits
+        # Initialize the initial encoded observation $ \\check{\\bf z}_{0} $ by
+        # activating up to $ a_{z} $ randomly chosen bits.
         # ----------------------------------------------------------------------
-        self.z_n = np.zeros(self.dz, order='C', dtype=bool)
+        z_0 = np.zeros(self.dz, order='C', dtype=bool)
         jz = np.unique(np.random.choice(self.dz, size=self.az, replace=True))
-        self.z_n[jz] = True
+        z_0[jz] = True
 
         # ----------------------------------------------------------------------
-        # Initialize layer 0: learn the previous encoded observation
+        # Initialize layer 0: learn the initial encoded observation.
         # ----------------------------------------------------------------------
         self.wnn_layer0 = VGRAMNode.VGRAMNode(pattern_length=self.dz,
                                               min_mem_size=1, max_mem_size=2 ** 11,
                                               min_learn_dist=0, max_recall_dist=0)
-        k_n = self.wnn_layer0.learn(self.z_n, 1)
+        k_0 = self.wnn_layer0.learn(z_0, 1)
 
         # ----------------------------------------------------------------------
-        # Draw the prior posterior $ \\boldsymbol{\pi}_{n|n-1} $ from the Dirichlet
-        # distribution $ Dir \\left( c_{s}; \\boldsymbol{\\alpha}_{0} \\right) $
+        # Draw the prior posterior $ \\boldsymbol{\pi}_{0|-1} $ from the Dirichlet
+        # distribution $ Dir \\left( c_{s}; \\boldsymbol{\\alpha}_{0} \\right) $.
         # ----------------------------------------------------------------------
-        pis_0 = np.random.dirichlet(self.alphas)
+        pis_0 = np.random.dirichlet(self.alphas_0)
 
         # ----------------------------------------------------------------------
-        # Draw up to $ p_{s} $ unique samples from the prior posterior $ \\boldsymbol{\pi}_{0|-1} $
+        # Draw up to $ p_{s} $ unique samples from the prior posterior $ \\boldsymbol{\pi}_{0|-1} $.
         # ----------------------------------------------------------------------
         ls_0 = np.unique(np.random.choice(self.cs, size=self.ps, replace=True, p=pis_0))
 
         # ----------------------------------------------------------------------
-        # Build the prior belief $ {\\bf b}_{0|-1} $
+        # Build the prior belief $ {\\bf b}_{0|-1} $ using the samples.
         # ----------------------------------------------------------------------
-        self.bs_n_n_1 = np.zeros(self.cs, order='C', dtype=bool)
-        self.bs_n_n_1[ls_0] = True
+        bs_0_0_1 = np.zeros(self.cs, order='C', dtype=bool)
+        bs_0_0_1[ls_0] = True
 
         # ----------------------------------------------------------------------
         # Initialize the predicted state belief as the prior belief such that the
-        # predicted equiprobable hypothesis are the same as in the prior belief
+        # predicted equiprobable hypothesis are the same as in the prior belief.
         # ----------------------------------------------------------------------
-        self.bs_n_1_n = self.bs_n_n_1
+        bs_0_1_0 = bs_0_0_1
 
         # ----------------------------------------------------------------------
-        # Initialize layer 1
+        # Initialize layer 1: learn the transition from the prior to the predicted state belief.
         # ----------------------------------------------------------------------
         self.wnn_layer1 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs,
                                                 min_mem_size=1, max_mem_size=2 ** 11,
                                                 #min_learn_dist=self.bz+self.ps/2, max_recall_dist=self.bz+self.ps/2,
-                                                min_learn_dist=16, max_recall_dist=16,
-                                                default_outputs=self.alphas)
-        self.wnn_layer1.learn(np.concatenate((self.z_n, self.bs_n_n_1)), self.alphas+self.bs_n_1_n)
+                                                min_learn_dist=8, max_recall_dist=8,
+                                                default_outputs=self.alphas_0)
+        self.wnn_layer1.learn(np.concatenate((z_0, bs_0_0_1)), self.alphas_0+bs_0_1_0)
 
         # ----------------------------------------------------------------------
         # Initialize the predicted observation belief as a single hypotheses
-        # corresponding to the same symbol as the previous observation
+        # corresponding to the same symbol as the initial observation.
         # ----------------------------------------------------------------------
-        self.bz_n_1_n = np.zeros(self.cz, order='C', dtype=bool)
-        self.bz_n_1_n[k_n] = True
+        bz_0_1_0 = np.zeros(self.cz, order='C', dtype=bool)
+        bz_0_1_0[k_0] = True
 
         # ----------------------------------------------------------------------
-        # Initialize layer 2
+        # Initialize layer 2: learn the observation belief given the predicted state belief.
         # ----------------------------------------------------------------------
         self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs,
                                                 min_mem_size=1, max_mem_size=2 ** 11,
                                                 #min_learn_dist=self.ps/2, max_recall_dist=self.ps/2,
                                                 min_learn_dist=16, max_recall_dist=16,
-                                                default_outputs=self.alphaz)
-        self.wnn_layer2.learn(self.bs_n_1_n, self.alphaz+self.learning_rate*self.bz_n_1_n)
+                                                default_outputs=self.alphaz_0)
+        self.wnn_layer2.learn(bs_0_1_0, self.alphaz_0+self.learning_rate*bz_0_1_0)
 
         # ----------------------------------------------------------------------
-        # Initialize the adaptive scalar encoder
+        # Initialize the previous observation as the initial one.
+        # ----------------------------------------------------------------------
+        self.z_n = z_0
+
+        # ----------------------------------------------------------------------
+        # Initialize previous state belief as the initial prior.
+        # ----------------------------------------------------------------------
+        self.bs_n_n_1 = bs_0_0_1
+
+        # ----------------------------------------------------------------------
+        # Initialize the scalar encoder.
         # ----------------------------------------------------------------------
         self.encoder = ScalarCodec.ScalarCodec(min_value=0, max_value=100,
                                                total_number_of_bits=self.dz, number_of_active_bits=self.az)
@@ -259,52 +273,54 @@ class NPCLAD:
 
         # ----------------------------------------------------------------------
         # Step 1: Retrieve hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $
-        # indexed by $ \\check{\bf z}_{n} $ and $ {\\bf b}_{n|n-1} $
+        # indexed by $ \\check{\\bf z}_{n} $ and $ {\\bf b}_{n|n-1} $.
         # ----------------------------------------------------------------------
         alphas_n_n_1 = self.wnn_layer1.recall(np.concatenate((self.z_n, self.bs_n_n_1)))[0]
 
         # ----------------------------------------------------------------------
-        # Step 2: Draw the predicted posterior $ \\boldsymbol{\pi}_{n+1|n} $ from
-        # the Dirichlet distribution $ Dir \\left( c_{s}; \\boldsymbol{\\alpha}_{n|n-1} \\right) $
+        # Step 2: Draw the predicted posterior $ \\boldsymbol{\\pi}_{n+1|n} $ from
+        # the Dirichlet distribution $ Dir \\left( c_{s}; \\boldsymbol{\\alpha}_{n|n-1} \\right) $.
         # ----------------------------------------------------------------------
         pis_n_1_n = np.random.dirichlet(alphas_n_n_1)
 
         # ----------------------------------------------------------------------
-        # Step 3: Draw up to $ p_{s} $ unique samples from the predicted posterior $ \\boldsymbol{\\pi}_{n+1|n} $
+        # Step 3: Draw up to $ p_{s} $ unique samples from the predicted posterior
+        # $ \\boldsymbol{\\pi}_{n+1|n} $.
         # ----------------------------------------------------------------------
         ls_n_1_n = np.unique(np.random.choice(self.cs, size=self.ps, replace=True, p=pis_n_1_n))
 
         # ----------------------------------------------------------------------
-        # Step 4: Build the predicted belief $ {\\bf b}_{n+1|n} $
+        # Step 4: Build the predicted belief $ {\\bf b}_{n+1|n} $.
         # ----------------------------------------------------------------------
         self.bs_n_1_n = np.zeros(self.cs, order='C', dtype=bool)
         self.bs_n_1_n[ls_n_1_n] = True
 
         # ----------------------------------------------------------------------
         # Step 5: Retrieve the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
-        # indexed by $ {\\bf b}_{n+1|n} $
+        # indexed by $ {\\bf b}_{n+1|n} $.
         # ----------------------------------------------------------------------
         alphaz_n_n_1 = self.wnn_layer2.recall(self.bs_n_1_n)[0]
 
         # ----------------------------------------------------------------------
-        # Step 6: Draw the predicted posterior $ \tilde{\\boldsymbol{\pi}}_{n+1|n} $
-        # from the Dirichlet distribution $ Dir \left( c_{z}; \tilde{\\boldsymbol{\\alpha}}_{n|n-1} \right) $
+        # Step 6: Draw the predicted posterior $ \tilde{\\boldsymbol{\\pi}}_{n+1|n} $
+        # from the Dirichlet distribution $ Dir \\left( c_{z}; \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} \\right) $.
         # ----------------------------------------------------------------------
         piz_n_1_n = np.random.dirichlet(alphaz_n_n_1)
 
         # ----------------------------------------------------------------------
-        # Step 7: Draw up to $ p_{z} $ unique samples from the predicted posterior $ \tilde{\\boldsymbol{\pi}}_{n+1|n} $
+        # Step 7: Draw up to $ p_{z} $ unique samples from the predicted posterior
+        # $ \\tilde{\\boldsymbol{\\pi}}_{n+1|n} $.
         # ----------------------------------------------------------------------
         lz_n_1_n = np.unique(np.random.choice(self.cz, size=self.pz, replace=True, p=piz_n_1_n))
 
         # ----------------------------------------------------------------------
-        # Step 8: Build the predicted belief $ \\tilde{\\bf b}_{n+1|n} $
+        # Step 8: Build the predicted belief $ \\tilde{\\bf b}_{n+1|n} $.
         # ----------------------------------------------------------------------
         self.bz_n_1_n = np.zeros(self.cz, order='C', dtype=bool)
         self.bz_n_1_n[lz_n_1_n] = True
 
         # ----------------------------------------------------------------------
-        # Step 9: Predict the next observation $ \hat{\bf z}_{n+1|n} $
+        # Step 9: Predict the next observation $ \\hat{\\bf z}_{n+1|n} $.
         # ----------------------------------------------------------------------
         k_n_1_n = np.argmax(piz_n_1_n)
         z_n_1_n = self.wnn_layer0.get_pattern_by_index(k_n_1_n)
@@ -326,54 +342,71 @@ class NPCLAD:
         # ----------------------------------------------------------------------
 
         # ----------------------------------------------------------------------
-        # Step 1: Check if there is a match
+        # Step 1: Check if there is a match.
         # ----------------------------------------------------------------------
         if self.bz_n_1_n[k_n_1] == 1:
             # ----------------------------------------------------------------------
             # Step 2: Retrieve the hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $
-            # indexed by $ \\check{\bf z}_{n} $ and $ {\\bf b}_{n|n-1} $
+            # indexed by $ \\check{\\bf z}_{n} $ and $ {\\bf b}_{n|n-1} $.
             # ----------------------------------------------------------------------
             alphas_n_n_1 = self.wnn_layer1.recall(np.concatenate((self.z_n, self.bs_n_n_1)))[0]
 
             # ----------------------------------------------------------------------
-            # Step 3: Update the hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $
+            # Step 3: Update the hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $.
             # ----------------------------------------------------------------------
             alphas_n_1_n = alphas_n_n_1 + self.bs_n_1_n
 
             # ----------------------------------------------------------------------
             # Step 4: Retrieve the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
-            # indexed by $ {\\bf b}_{n+1|n} $
+            # indexed by $ {\\bf b}_{n+1|n} $.
             # ----------------------------------------------------------------------
             alphaz_n_n_1 = self.wnn_layer2.recall(self.bs_n_1_n)[0]
 
             # ----------------------------------------------------------------------
-            # Step 5: Update the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
+            # Step 5: Update the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $.
             # ----------------------------------------------------------------------
             alphaz_n_1_n = alphaz_n_n_1 + self.bz_n_1_n
             alphaz_n_1_n[k_n_1] += self.learning_rate
         else:  # Step 6...
             # ----------------------------------------------------------------------
-            # Steps 7,8: Initialize the hyper-parameters $ \\boldsymbol{\\alpha}_{n+1|n} $
+            # Draw a new predicted posterior $ \\boldsymbol{\\pi}_{n+1|n} $ from the Dirichlet
+            # distribution $ Dir \\left( c_{s}; \\boldsymbol{\\alpha}_{0} \\right) $.
             # ----------------------------------------------------------------------
-            alphas_n_1_n = self.alphas
+            pis_n_1_n = np.random.dirichlet(self.alphas_0)
 
             # ----------------------------------------------------------------------
-            # Steps 9,10: Initialize the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n+1|n} $
+            # Draw up to $ p_{s} $ unique samples from the prior posterior $ \\boldsymbol{\\pi}_{n+1|n} $.
             # ----------------------------------------------------------------------
-            alphaz_n_1_n = self.alphaz
+            ls_n_1_n = np.unique(np.random.choice(self.cs, size=self.ps, replace=True, p=pis_n_1_n))
+
+            # ----------------------------------------------------------------------
+            # Build the prior belief $ {\\bf b}_{n+1|n} $.
+            # ----------------------------------------------------------------------
+            self.bs_n_1_n = np.zeros(self.cs, order='C', dtype=bool)
+            self.bs_n_1_n[ls_n_1_n] = True
+
+            # ----------------------------------------------------------------------
+            # Steps 7,8: Initialize the hyper-parameters $ \\boldsymbol{\\alpha}_{n+1|n} $.
+            # ----------------------------------------------------------------------
+            alphas_n_1_n = self.alphas_0 + self.bs_n_1_n
+
+            # ----------------------------------------------------------------------
+            # Steps 9,10: Initialize the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n+1|n} $.
+            # ----------------------------------------------------------------------
+            alphaz_n_1_n = self.alphaz_0
             alphaz_n_1_n[k_n_1] += self.learning_rate
         # Step 11...
 
         # ----------------------------------------------------------------------
-        # Steps 12,13: Store the updated hyper-parameters
+        # Steps 12,13: Store the updated hyper-parameters.
         # ----------------------------------------------------------------------
         self.wnn_layer1.learn(np.concatenate((self.z_n, self.bs_n_n_1)), alphas_n_1_n)
         self.wnn_layer2.learn(self.bs_n_1_n, alphaz_n_1_n)
 
-        # Update the previous observation
+        # Update the previous observations
         self.z_n = z_n_1
 
-        # Update the previous state belief
+        # Update the previous beliefs
         self.bs_n_n_1 = self.bs_n_1_n
 
     def handle(self, y_n_1):
@@ -394,17 +427,17 @@ class NPCLAD:
         # ----------------------------------------------------------------------
 
         # ----------------------------------------------------------------------
-        # Step 1: Encode observation
+        # Step 1: Encode observation.
         # ----------------------------------------------------------------------
         z_n_1, k_n_1 = self.encode(y_n_1)
 
         # ----------------------------------------------------------------------
-        # Step 2: Predict next observation
+        # Step 2: Predict next observation.
         # ----------------------------------------------------------------------
         z_n_1_n, k_n_1_n, p_n_1_n = self.predict()
 
         # ----------------------------------------------------------------------
-        # Step 3,4: Detect the anomaly and compute the corresponding score
+        # Step 3,4: Detect the anomaly and compute the corresponding score.
         # ----------------------------------------------------------------------
         if self.test == 1:
             # Perform test 1: check if the predicted observation mismatches the encoded observation
@@ -418,12 +451,12 @@ class NPCLAD:
             raise Exception("Invalid AD test type.")
 
         # ----------------------------------------------------------------------
-        # Step 5: Learn the non-parametric model
+        # Step 5: Learn the non-parametric model.
         # ----------------------------------------------------------------------
         self.learn(z_n_1, k_n_1)
 
         # ----------------------------------------------------------------------
-        # Step 6: Decode the predicted observation as $ \hat{\bf y}_{n+1|n} $
+        # Step 6: Decode the predicted observation as $ \\hat{\\bf y}_{n+1|n} $.
         # ----------------------------------------------------------------------
         y_n_1_n = self.decode(z_n_1_n)
 
