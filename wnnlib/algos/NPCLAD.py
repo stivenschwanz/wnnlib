@@ -66,7 +66,7 @@ class NPCLAD:
     the observations.
     """
 
-    def __init__(self, cs, ps, alphas, az, bz, cz, dz, pz, alphaz, test, delta=0, learning_rate=1):
+    def __init__(self, cs, ps, alphas, az, bz, cz, dz, pz, alphaz, test, delta=0, learning_rate=1, sub_seq_len=4):
         """
         Initialize the nP-CLAD detector using the nine hyperparameters.
 
@@ -87,6 +87,7 @@ class NPCLAD:
                         predicted symbols (AD test 2).
             delta (int): Maximum Hamming distance between the predicted observation and the actual observation (test 1).
             learning_rate (int): Pseudo-counts learning rate (use this parameter to boost the pseudo-counts updating).
+            sub_seq_len (int): Length of the sub-sequences employed to build the hidden state symbols.
         """
 
         # ----------------------------------------------------------------------
@@ -119,6 +120,9 @@ class NPCLAD:
         # Check the learning rate
         assert learning_rate > 0
 
+        # Check the sub_seq_len
+        assert sub_seq_len > 1
+
         # ----------------------------------------------------------------------
         # Save the parameters
         # ----------------------------------------------------------------------
@@ -134,6 +138,7 @@ class NPCLAD:
         self.test = test
         self.delta = delta
         self.learning_rate = learning_rate
+        self.sub_seq_len = sub_seq_len
 
         # ----------------------------------------------------------------------
         # Initialize members
@@ -169,6 +174,8 @@ class NPCLAD:
         self.alphaz_0 = None
         self.test = None
         self.delta = None
+        self.learning_rate = None
+        self.sub_seq_len = None
 
         # Clean up members
         self.wnn_layer0 = None
@@ -243,7 +250,7 @@ class NPCLAD:
                                               min_learn_dist=0, max_recall_dist=0, default_output=0)
 
         self.sub_seqs = {}
-        self.curr_sub_seq = (0, 0, 0, 0)
+        self.curr_sub_seq = (0, )*self.sub_seq_len
         self.sub_seq_counter = 0
         self.curr_sub_seq_idx = self.sub_seq_counter
         self.sub_seqs[self.curr_sub_seq] = self.curr_sub_seq_idx
@@ -339,7 +346,6 @@ class NPCLAD:
         # Update the current sub-sequence (shift it to the left and add the new index)
         # ----------------------------------------------------------------------
         self.curr_sub_seq = self.curr_sub_seq[1:] + (k_n_1,)
-        # self.curr_sub_seq = self.curr_sub_seq[1:] + (self.k_n,)
         if self.curr_sub_seq in self.sub_seqs:
             self.curr_sub_seq_idx = self.sub_seqs[self.curr_sub_seq]
         else:
@@ -492,6 +498,7 @@ class TestNPCLAD(unittest.TestCase):
     min_overlap = 2 ** 3  # Minimum overlap between the predicted observation and the encoded observation
     delta = 2*az - 2 * min_overlap
     learning_rate = 2 ** 0
+    sub_seq_len = 2 ** 2
     detector = None
     test_statistics = None
 
@@ -506,8 +513,8 @@ class TestNPCLAD(unittest.TestCase):
         Set up method: configure parameters and create a VGRAM node.
         """
         cls.detector = NPCLAD(cs=cls.cs, ps=cls.ps, alphas=cls.alphas,
-                              az=cls.az, bz=cls.bz, cz=cls.cz, dz=cls.dz, pz=cls.pz, alphaz=cls.alphaz,
-                              test=cls.test, delta=cls.delta, learning_rate=cls.learning_rate)
+                              az=cls.az, bz=cls.bz, cz=cls.cz, dz=cls.dz, pz=cls.pz, alphaz=cls.alphaz, test=cls.test,
+                              delta=cls.delta, learning_rate=cls.learning_rate, sub_seq_len=cls.sub_seq_len)
         cls.test_statistics = {}
 
     @classmethod
