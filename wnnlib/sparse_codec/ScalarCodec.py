@@ -1,7 +1,6 @@
 import unittest
 from numpy import random
 import numpy as np
-from obfuskey import Obfuskey, alphabets
 from wnnlib.BitUtils import BitUtils
 
 

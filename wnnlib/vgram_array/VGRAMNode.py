@@ -121,6 +121,9 @@ class VGRAMNode:
         Return:
             (int): Index of the updated input-output pair
         """
+        if self.default_output >= output_value:
+            return None
+
         # Prune a low frequency pairs first
         if self.num_valid_pairs == self.max_mem_size:
             min_value = np.min(self.output_values)
