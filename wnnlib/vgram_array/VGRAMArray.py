@@ -95,7 +95,7 @@ class VGRAMArray:
             self.output_values[it.multi_index] = self.nodes[it.multi_index].recall(input_pattern)
             it.iternext()
 
-        return self.output_values
+        return np.copy(self.output_values)
 
     def learn(self, input_pattern, output_values):
         """
@@ -119,22 +119,20 @@ class VGRAMArray:
         Array memory statistics.
 
         Return:
-            (float): array memory size (MB)
-            (float): array memory capacity (MB)
+            (float): array memory size (KB)
+            (float): array memory capacity (KB)
             (float): array memory usage (%)
         """
         it = np.nditer(self.output_values, flags=['multi_index'], op_flags=['readwrite'])
-        arr_mem_size_megabytes = 0
-        arr_mem_capacity_megabytes = 0
+        arr_mem_size_kilobytes = 0
+        arr_mem_capacity_kilobytes = 0
         while not it.finished:
             node_mem_size_kilobytes, node_mem_capacity_kilobytes, _ = self.nodes[it.multi_index].memory_stats()
-            arr_mem_size_megabytes += node_mem_size_kilobytes
-            arr_mem_capacity_megabytes += node_mem_capacity_kilobytes
+            arr_mem_size_kilobytes += node_mem_size_kilobytes
+            arr_mem_capacity_kilobytes += node_mem_capacity_kilobytes
             it.iternext()
-        arr_mem_size_megabytes /= 1024
-        arr_mem_capacity_megabytes /= 1024
-        arr_mem_usage_percent = arr_mem_size_megabytes/arr_mem_capacity_megabytes
-        return arr_mem_size_megabytes, arr_mem_capacity_megabytes, arr_mem_usage_percent
+        arr_mem_usage_percent = arr_mem_size_kilobytes/arr_mem_capacity_kilobytes
+        return arr_mem_size_kilobytes, arr_mem_capacity_kilobytes, arr_mem_usage_percent
 
     def debug(self):
         """
