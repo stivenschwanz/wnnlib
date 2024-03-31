@@ -9,7 +9,10 @@ class VGRAMNode:
     """
     This class defines a Virtual Generalized Random Access Memory (VGRAM) node.
     """
-    def __init__(self, pattern_length, min_mem_size, max_mem_size, min_learn_dist, max_recall_dist, default_output=None):
+    def __init__(self, pattern_length,
+                 min_mem_size, max_mem_size,
+                 min_learn_dist, max_recall_dist,
+                 default_output=None, type_output=float):
         """
         Initialize an empty VGRAM node.
 
@@ -19,7 +22,8 @@ class VGRAMNode:
             max_mem_size (int): Maximum memory size.
             min_learn_dist (int): Minimum Hamming distance.
             max_recall_dist (int): Maximum Hamming distance.
-            default_output (float): Default output value
+            default_output (type_output): Default output value
+            type_output (data-type): Default is float.
         """
         # Check pattern length
         assert pattern_length > 0
@@ -30,6 +34,9 @@ class VGRAMNode:
         # Check minimum and maximum Hamming distances
         assert 0 <= min_learn_dist <= max_recall_dist
 
+        # Check default output data type
+        assert default_output is None or type(default_output) == type_output
+
         # Initialize constant members
         self.pattern_length = pattern_length
         self.min_mem_size = min_mem_size
@@ -37,10 +44,11 @@ class VGRAMNode:
         self.min_learn_dist = min_learn_dist
         self.max_recall_dist = max_recall_dist
         self.default_output = default_output
+        self.type_output = type_output
 
         # Initialize memory
         self.input_patterns = np.zeros((max_mem_size, pattern_length), order='C', dtype=bool)
-        self.output_values = np.zeros(max_mem_size, order='C', dtype=float)
+        self.output_values = np.zeros(max_mem_size, order='C', dtype=type_output)
         self.valid_pairs = np.zeros(max_mem_size, order='C', dtype=bool)
         self.num_valid_pairs = int(0)
         self.all_indexes = np.array(range(0, self.max_mem_size))
@@ -96,7 +104,7 @@ class VGRAMNode:
             input_pattern (bool[]): Input pattern.
 
         Returns:
-            (float): Output value.
+            (data type): Output value.
         """
         # Default output value
         output_value = self.default_output
@@ -116,12 +124,13 @@ class VGRAMNode:
 
         Parameters:
             input_pattern (bool[]): Input pattern.
-            output_value (float): Output value.
+            output_value (data type): Output value.
 
         Return:
             (int): Index of the updated input-output pair
         """
-        if self.default_output >= output_value:
+        # Skip learning the default output
+        if self.default_output is not None and self.default_output >= output_value:
             return None
 
         # Prune a low frequency pairs first
@@ -139,7 +148,7 @@ class VGRAMNode:
         if self.num_valid_pairs == np.uint(0):
             # Store the first input - output pair
             self.input_patterns[0, :] = input_pattern
-            self.output_values[0] = float(output_value)
+            self.output_values[0] = self.type_output(output_value)
             self.valid_pairs[0] = True
             self.num_valid_pairs = int(1)
             return 0
@@ -149,13 +158,13 @@ class VGRAMNode:
 
             if closest_pattern_dist <= self.min_learn_dist:
                 # Update an existing input - output pair
-                self.output_values[closest_pattern_idx] = float(output_value)
+                self.output_values[closest_pattern_idx] = self.type_output(output_value)
                 return closest_pattern_idx
             else:
                 # Store a new input - output pair
                 empty_entry_idx = np.argmin(self.valid_pairs)
                 self.input_patterns[empty_entry_idx, :] = input_pattern
-                self.output_values[empty_entry_idx] = float(output_value)
+                self.output_values[empty_entry_idx] = self.type_output(output_value)
                 self.valid_pairs[empty_entry_idx] = True
                 self.num_valid_pairs += int(1)
                 return empty_entry_idx
@@ -205,7 +214,7 @@ class VGRAMNode:
         # Show output value (if given)
         self.axs[1, 1].clear()
         if output_value is not None:
-            self.axs[1, 1].imshow(output_value*np.ones((1, 1), order='C', dtype=float), cmap='gray',
+            self.axs[1, 1].imshow(output_value*np.ones((1, 1), order='C', dtype=self.type_output), cmap='gray',
                                   vmin=0, vmax=15, interpolation='nearest', aspect='auto')
         self.fig.tight_layout()
         plt.show(block=False)

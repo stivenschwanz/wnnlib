@@ -10,7 +10,10 @@ class VGRAMArray:
     """
     This class defines an array of Virtual Generalized Random Access Memory (VGRAM) nodes.
     """
-    def __init__(self, output_dims, pattern_length, min_mem_size, max_mem_size, min_learn_dist, max_recall_dist, default_outputs):
+    def __init__(self, output_dims, pattern_length,
+                 min_mem_size, max_mem_size,
+                 min_learn_dist, max_recall_dist,
+                 default_outputs, type_outputs=float):
         """
         Initialize an empty VGRAM node.
 
@@ -21,7 +24,8 @@ class VGRAMArray:
             max_mem_size (int): Maximum memory size.
             min_learn_dist (int): Minimum Hamming distance.
             max_recall_dist (int): Maximum Hamming distance.
-            default_outputs (float[]): Default output values
+            default_outputs (type_outputs[]): Default output values
+            type_outputs (data-type): Default type is float
         """
         # Sanity check
         if np.shape(default_outputs) is not output_dims:
@@ -36,7 +40,8 @@ class VGRAMArray:
                                                              max_mem_size=max_mem_size,
                                                              min_learn_dist=min_learn_dist,
                                                              max_recall_dist=max_recall_dist,
-                                                             default_output=default_outputs[it.multi_index])
+                                                             default_output=default_outputs[it.multi_index],
+                                                             type_output=type_outputs)
             it.iternext()
 
         # Initialize array outputs
