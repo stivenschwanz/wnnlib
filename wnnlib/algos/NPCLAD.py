@@ -300,8 +300,8 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs,
                                                 min_mem_size=1, max_mem_size=2 ** 11,
-                                                #min_learn_dist=self.bz + self.ps, max_recall_dist=self.bz + self.ps,
-                                                min_learn_dist=0, max_recall_dist=self.bz + self.ps,
+                                                min_learn_dist=self.bz + self.ps, max_recall_dist=self.bz + self.ps,
+                                                #min_learn_dist=0, max_recall_dist=self.bz + self.ps,
                                                 # min_learn_dist=0, max_recall_dist=0,
                                                 # min_learn_dist=0, max_recall_dist=self.dz + self.cs,
                                                 default_outputs=self.alphas_0, type_outputs=np.float64)
@@ -311,8 +311,8 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         self.wnn_layer3 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs,
                                                 min_mem_size=1, max_mem_size=2 ** 11,
-                                                #min_learn_dist=self.ps, max_recall_dist=self.ps,
-                                                min_learn_dist=0, max_recall_dist=self.ps,
+                                                min_learn_dist=self.ps, max_recall_dist=self.ps,
+                                                #min_learn_dist=0, max_recall_dist=self.ps,
                                                 # min_learn_dist=0, max_recall_dist=0,
                                                 # min_learn_dist=0, max_recall_dist=self.cs,
                                                 default_outputs=self.alphaz_0, type_outputs=np.float64)
@@ -386,6 +386,9 @@ class NPCLAD:
             self.curr_sub_seq_idx = self.sub_seqs[self.curr_sub_seq]
         else:
             self.sub_seq_counter += self.ps
+            if self.sub_seq_counter >= self.cs:
+                self.sub_seq_counter += 1
+                self.sub_seq_counter %= self.cs
             self.curr_sub_seq_idx = self.sub_seq_counter
             self.sub_seqs[self.curr_sub_seq] = self.curr_sub_seq_idx
 
@@ -478,8 +481,7 @@ class NPCLAD:
             # Perform test 1: check if the predicted observation mismatches the encoded observation
             if z_n_1_n is not None:
                 anomaly_n_1 = np.count_nonzero(z_n_1_n != z_n_1) > self.delta
-                if anomaly_n_1:
-                    print("anomaly detected")
+
                 score_n_1 = 1 - self.piz_n_1_n[k_n_1]
             else:
                 anomaly_n_1 = False
@@ -538,22 +540,20 @@ class TestNPCLAD(unittest.TestCase):
     """
 
     # Model parameters
-    cs = 2 ** 9
+    cs = 2 ** 11
     ps = 2 ** 3
     alphas = 2 ** -12
-    #az = 2 ** 5
-    az = 2 ** 6
+    az = 64
     bz = 2 ** 2
-    cz = 2 ** 9
-    #dz = 2 ** 8
+    cz = 2 ** 11
     dz = 2 ** 11
     pz = 2 ** 3
     alphaz = 2 ** -12
     test = 1
     min_overlap = 2 ** 5  # Minimum overlap between the predicted observation and the encoded observation
     delta = 2*az - 2 * min_overlap
-    learning_rate = 2 ** 0
-    sub_seq_len = 2 ** 2
+    learning_rate = 2 ** 1
+    sub_seq_len = 2 ** 2 - 1
     detector = None
     test_statistics = None
 
