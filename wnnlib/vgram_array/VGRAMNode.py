@@ -57,6 +57,38 @@ class VGRAMNode:
         self.fig = None
         self.axs = None
 
+    def __del__(self):
+        """
+        Delete method.
+        """
+        self.cleanup()
+
+    def cleanup(self):
+        """
+        Clean everything up.
+        """
+
+        if self.input_patterns is not None:
+            del self.input_patterns
+
+        if self.output_values is not None:
+            del self.output_values
+
+        if self.valid_pairs is not None:
+            del self.valid_pairs
+
+        if self.all_indexes is not None:
+            del self.all_indexes
+
+        self.num_valid_pairs = None
+
+        if self.fig is not None:
+            self.axs.clear()
+            plt.close(self.fig)
+            self.fig.canvas.manager.window.destroy()
+            self.axs = None
+            self.fig = None
+
     def find_closest_pattern(self, input_pattern):
         """
         Find the closest stored input pattern according to the Hamming distance.

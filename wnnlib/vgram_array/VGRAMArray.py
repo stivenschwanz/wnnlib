@@ -27,6 +27,15 @@ class VGRAMArray:
             default_outputs (type_outputs[]): Default output values
             type_outputs (data-type): Default type is float
         """
+        # Array of nodes and associated output values
+        self.nodes = None
+        self.output_values = None
+
+        # Debug options
+        self.debug_dims = None
+        self.fig = None
+        self.ax = None
+
         # Sanity check
         if np.shape(default_outputs) is not output_dims:
             default_outputs = np.reshape(default_outputs, output_dims)
@@ -57,10 +66,6 @@ class VGRAMArray:
             kx = int(np.ceil(k/2))
             ky = int(np.floor(k/2))
             self.debug_dims = (2**kx, 2**ky)
-
-        # Debug options
-        self.fig = None
-        self.ax = None
 
     def __del__(self):
         """
