@@ -78,9 +78,9 @@ class VGRAMArray:
         Clean everything up.
         """
         if self.fig is not None:
-            self.ax.clear()
+            # self.ax.clear()
             plt.close(self.fig)
-            self.fig.canvas.manager.window.destroy()
+            # self.fig.canvas.manager.window.destroy()
             self.ax = None
             self.fig = None
 
@@ -102,7 +102,7 @@ class VGRAMArray:
         """
         it = np.nditer(self.output_values, flags=['multi_index'], op_flags=['readwrite'])
         while not it.finished:
-            self.output_values[it.multi_index] = self.nodes[it.multi_index].recall(input_pattern)
+            self.output_values[it.multi_index], _, _ = self.nodes[it.multi_index].recall(input_pattern)
             it.iternext()
 
         return np.copy(self.output_values)
