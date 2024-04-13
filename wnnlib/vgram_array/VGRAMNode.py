@@ -48,6 +48,7 @@ class VGRAMNode:
 
         # Initialize memory
         self.input_patterns = np.zeros((max_mem_size, pattern_length), order='C', dtype=bool)
+        self.input_frequencies = np.zeros(max_mem_size, order='C', dtype=int)
         self.output_values = np.zeros(max_mem_size, order='C', dtype=type_output)
         self.valid_pairs = np.zeros(max_mem_size, order='C', dtype=bool)
         self.num_valid_pairs = int(0)
@@ -71,6 +72,9 @@ class VGRAMNode:
         if self.input_patterns is not None:
             del self.input_patterns
 
+        if self.input_frequencies is not None:
+            del self.input_frequencies
+
         if self.output_values is not None:
             del self.output_values
 
@@ -83,9 +87,9 @@ class VGRAMNode:
         self.num_valid_pairs = None
 
         if self.fig is not None:
-            self.axs.clear()
+            # self.axs.clear()
             plt.close(self.fig)
-            self.fig.canvas.manager.window.destroy()
+            # self.fig.canvas.manager.window.destroy()
             self.axs = None
             self.fig = None
 
@@ -99,18 +103,23 @@ class VGRAMNode:
         Returns:
             (int, int): Hamming distance to the closest pattern and index of the closest pattern.
         """
+        # Set default outputs
         closest_pattern_dist = np.inf
         closest_pattern_idx = None
+
+        # Loop over all valid indexes
         valid_indexes = self.all_indexes[self.valid_pairs]
         for idx in valid_indexes:
             # Efficiently compute the Hamming distance between the patterns
             dist = np.count_nonzero(self.input_patterns[idx, :] != input_pattern)
+
             # Randomly update the closest pattern index if the stored pattern is at the minimum distance
             if dist < closest_pattern_dist or dist == closest_pattern_dist and np.random.randint(low=0, high=2) == 1:
                 # Update the closest pattern distance
                 closest_pattern_dist = dist
                 closest_pattern_idx = idx
-        return [closest_pattern_dist, closest_pattern_idx]
+
+        return closest_pattern_dist, closest_pattern_idx
 
     def get_pattern_by_index(self, index):
         """
@@ -120,12 +129,38 @@ class VGRAMNode:
             index (int): Index of the pattern.
 
         Returns:
-            (bool[]): Input patter at the given memory location.
+            (bool[]): Input pattern at the given memory location.
         """
+        # Set default outputs
         input_pattern = None
+
+        # Get valid indexes
         valid_indexes = self.all_indexes[self.valid_pairs]
         if index in valid_indexes:
             input_pattern = self.input_patterns[index, :]
+
+        return input_pattern
+
+    def get_pattern_by_output(self, value):
+        """
+        Get the stored input pattern by the associated output value.
+
+        Parameters:
+            value (type_output): Output value.
+
+        Returns:
+            (bool[]): First input pattern associated with the exact value.
+        """
+        # Set default outputs
+        input_pattern = None
+
+        # Get valid indexes
+        valid_indexes = self.all_indexes[self.valid_pairs]
+        for index in valid_indexes:
+            if self.output_values[index] == value:
+                input_pattern = self.input_patterns[index, :]
+                break
+
         return input_pattern
 
     def recall(self, input_pattern):
@@ -136,19 +171,27 @@ class VGRAMNode:
             input_pattern (bool[]): Input pattern.
 
         Returns:
-            (data type): Output value.
+            (data type): Output value associated with the closest pattern.
+            (int): Distance to the closest pattern
+            (int): Index of the closest pattern
         """
-        # Default output value
-        output_value = self.default_output
+        # Set default outputs
+        outputs = (self.default_output, None, None)
 
         # Find the closest stored pattern
         [closest_pattern_dist, closest_pattern_idx] = self.find_closest_pattern(input_pattern)
 
         if closest_pattern_dist <= self.max_recall_dist:
-            # Return the output associated with the closest input pattern
+            # Return the output value associated with the closest stored pattern
             output_value = self.output_values[closest_pattern_idx]
 
-        return output_value
+            # Update the frequency associated with the closest stored pattern
+            self.input_frequencies[closest_pattern_idx] += int(1)
+
+            # Set the outputs
+            outputs = (output_value, closest_pattern_dist, closest_pattern_idx)
+
+        return outputs
 
     def learn(self, input_pattern, output_value):
         """
@@ -165,13 +208,13 @@ class VGRAMNode:
         if self.default_output is not None and self.default_output >= output_value:
             return None
 
-        # Prune a low frequency pairs first
+        # Prune low frequency pairs first
         if self.num_valid_pairs == self.max_mem_size:
-            min_value = np.min(self.output_values)
-            min_indexes = np.where(self.output_values == min_value)[0]
-            np.random.shuffle(min_indexes)
+            min_freq = np.min(self.input_frequencies)
+            min_freq_indexes = np.where(self.input_frequencies == min_freq)[0]
+            np.random.shuffle(min_freq_indexes)
             max_pruning = self.max_mem_size - self.min_mem_size
-            prune_indexes = min_indexes[:max_pruning]
+            prune_indexes = min_freq_indexes[:max_pruning]
             self.input_patterns[prune_indexes, :] = np.zeros(self.pattern_length, order='C', dtype=bool)
             self.output_values[prune_indexes] = self.default_output
             self.valid_pairs[prune_indexes] = False
@@ -180,6 +223,7 @@ class VGRAMNode:
         if self.num_valid_pairs == np.uint(0):
             # Store the first input - output pair
             self.input_patterns[0, :] = input_pattern
+            self.input_frequencies[0] = int(1)
             self.output_values[0] = self.type_output(output_value)
             self.valid_pairs[0] = True
             self.num_valid_pairs = int(1)
@@ -188,14 +232,17 @@ class VGRAMNode:
             # Find the closest stored pattern
             [closest_pattern_dist, closest_pattern_idx] = self.find_closest_pattern(input_pattern)
 
+            # Check if it is closer than the minimum learning distance
             if closest_pattern_dist <= self.min_learn_dist:
                 # Update an existing input - output pair
                 self.output_values[closest_pattern_idx] = self.type_output(output_value)
+                self.input_frequencies[closest_pattern_idx] += int(1)
                 return closest_pattern_idx
             else:
                 # Store a new input - output pair
                 empty_entry_idx = np.argmin(self.valid_pairs)
                 self.input_patterns[empty_entry_idx, :] = input_pattern
+                self.input_frequencies[empty_entry_idx] = int(1)
                 self.output_values[empty_entry_idx] = self.type_output(output_value)
                 self.valid_pairs[empty_entry_idx] = True
                 self.num_valid_pairs += int(1)
@@ -317,7 +364,7 @@ class TestVGRAMNode(unittest.TestCase):
         for n in range(0, self.number_of_patterns):
             pattern = np.random.randint(low=0, high=2, size=self.pattern_length, dtype=bool)
             t = time.time()
-            value = self.node.recall(pattern)
+            value, _, _ = self.node.recall(pattern)
             self.node.debug(pattern, value)
             elapsed_time += time.time() - t
         self.test_statistics["elapsed_recall_time"] = elapsed_time

@@ -7,7 +7,7 @@ import time
 from wnnlib.vgram_array import VGRAMArray, VGRAMNode
 from wnnlib.sparse_codec import ScalarCodec
 from wnnlib.sparse_codec import FlexScalarCodec
-
+import gc
 
 def belief(c, p, alpha):
     """
@@ -19,7 +19,7 @@ def belief(c, p, alpha):
         alpha (float[]): Hyper-parameters $ \\boldsymbol{\\alpha} $.
     Return:
        (bool[]): Sparsely encoded belief $ {\\bf b} $.
-       (int[]): Counts vector $ {\\bf c} $.
+       (int[]): Pseudo-counts vector $ {\\bf pc} $.
        (float[]): Probability distribution $ \\boldsymbol{\\pi} $.
    """
 
@@ -30,34 +30,22 @@ def belief(c, p, alpha):
     pi = np.random.dirichlet(alpha)
 
     # ----------------------------------------------------------------------
-    # Draw up to $ p $ unique samples from the predicted posterior
-    # $ \\boldsymbol{\\pi} $.
+    # Build the pseudo-counts vector $ {\\bf pc} $.
     # ----------------------------------------------------------------------
-    #ell = np.random.choice(c, size=p, replace=True, p=pi)
-
-    # ----------------------------------------------------------------------
-    # Build the counts vector $ {\\bf c} $.
-    # ----------------------------------------------------------------------
-    #counts = np.zeros(c, order='C', dtype=int)
-    #for i in ell:
-    #    counts[i] += 1
-    counts = np.floor((p+1)*pi)
+    pc = np.floor((p+1)*pi)
 
     # ----------------------------------------------------------------------
     # Build the sparsely encoded belief $ {\\bf b} $.
     # ----------------------------------------------------------------------
-    # bel = np.zeros(c, order='C', dtype=bool)
-    # bel[ell] = True
-
     acc = 0
     bel = np.zeros(c, order='C', dtype=bool)
     for i in np.arange(c):
-        acc += counts[i]
+        acc += pc[i]
         if acc > 0:
             bel[i % c] = True
             acc -= 1
 
-    return bel, counts, pi
+    return bel, pc, pi
 
 
 class NPCLAD:
@@ -67,7 +55,10 @@ class NPCLAD:
     the observations.
     """
 
-    def __init__(self, cs, ps, alphas, az, bz, cz, dz, pz, alphaz, test, delta=0, learning_rate=1, sub_seq_len=4):
+    def __init__(self, cs, ps, alphas,
+                 az, bz, cz, dz, pz, alphaz,
+                 test=1, delta=0, tau=0.75,
+                 learning_rate=1, sub_seq_len=4):
         """
         Initialize the nP-CLAD detector using the nine hyperparameters.
 
@@ -87,6 +78,7 @@ class NPCLAD:
             test (int): Check if the observation mismatches the predicted observation (AD test 1) or all
                         predicted symbols (AD test 2).
             delta (int): Maximum Hamming distance between the predicted observation and the actual observation (test 1).
+            tau (float): Anomaly score threshold (test 2).
             learning_rate (int): Pseudo-counts learning rate (use this parameter to boost the pseudo-counts updating).
             sub_seq_len (int): Length of the sub-sequences employed to build the hidden state symbols.
         """
@@ -118,6 +110,9 @@ class NPCLAD:
         # Check the AD threshold for test 1
         assert delta >= 0
 
+        # Check the AD threshold for test 2
+        assert 1 >= tau >= 0
+
         # Check the learning rate
         assert learning_rate > 0
 
@@ -138,6 +133,7 @@ class NPCLAD:
         self.alphaz_0 = alphaz * np.ones(cz, order='C', dtype=float)
         self.test = test
         self.delta = delta
+        self.tau = tau
         self.learning_rate = learning_rate
         self.sub_seq_len = sub_seq_len
 
@@ -145,15 +141,14 @@ class NPCLAD:
         # Initialize members
         # ----------------------------------------------------------------------
         self.wnn_layer0 = None
-        #self.wnn_layer1 = None
+        self.wnn_layer1 = None
         self.wnn_layer2 = None
-        self.wnn_layer3 = None
         self.bs_n_n_1 = None
         self.bs_n_1_n = None
         self.piz_n_1_n = None
         self.z_n = None
         self.k_n = None
-        self.encoder = None
+        self.codec = None
         self.z_counter = 0
         self.sub_seq_counter = None
         self.curr_sub_seq_idx = None
@@ -177,20 +172,20 @@ class NPCLAD:
         self.alphaz_0 = None
         self.test = None
         self.delta = None
+        self.tau = None
         self.learning_rate = None
         self.sub_seq_len = None
 
         # Clean up members
         self.wnn_layer0 = None
-        #self.wnn_layer1 = None
+        self.wnn_layer1 = None
         self.wnn_layer2 = None
-        self.wnn_layer3 = None
         self.bs_n_n_1 = None
         self.bs_n_1_n = None
         self.piz_n_1_n = None
         self.z_n = None
         self.k_n = None
-        self.encoder = None
+        self.codec = None
         self.z_counter = 0
         self.sub_seq_counter = None
         self.curr_sub_seq_idx = None
@@ -209,22 +204,19 @@ class NPCLAD:
         """
 
         # Encode the observation using the adaptive sparse encoder
-        z_n_1 = self.encoder.encode(y_n_1)
+        z_n_1 = self.codec.encode(y_n_1)
 
         # Find the index of the corresponding input-output pair in memory
-        # [d_n_1, k_n_1] = self.wnn_layer0.find_closest_pattern(z_n_1)
+        _, _, k_n_1 = self.wnn_layer0.recall(z_n_1)
 
-        k_n_1 = self.wnn_layer0.recall(z_n_1)
-
-        # Learn the new pattern if there is not a perfect match
-        #if d_n_1 != 0:
-        #    k_n_1 = self.wnn_layer0.learn(z_n_1, self.z_counter)
-        #    self.z_counter += 1
-
+        # Check if there is a match
         if k_n_1 is None:
-            k_n_1 = self.z_counter
-            _ = self.wnn_layer0.learn(z_n_1, self.z_counter)
+            # Learn the new pattern and retrieve the index of the corresponding input-output pair in memory
+            k_n_1 = self.wnn_layer0.learn(z_n_1, self.z_counter)
+
+            # Increment the global counter for statistics purposes
             self.z_counter += 1
+            # print(self.z_counter)
 
         return z_n_1, k_n_1
 
@@ -240,7 +232,7 @@ class NPCLAD:
         """
 
         # Encode the observation using the adaptive sparse encoder
-        y_n_1_n = self.encoder.decode(z_n_1_n)
+        y_n_1_n = self.codec.decode(z_n_1_n)
 
         return y_n_1_n
 
@@ -250,29 +242,30 @@ class NPCLAD:
         """
 
         # ----------------------------------------------------------------------
-        # Initialize the scalar encoder.
+        # Initialize codec: a flexible scalar encoder / decoder mapping real
+        # number into sparse representations with $ d_{z} $ bit and up to $ a_{z} $
+        # active bits.
+        # TODO: initialize as a function of (total_number_of_bits=self.dz, number_of_active_bits=self.az)
         # ----------------------------------------------------------------------
-        # self.encoder = ScalarCodec.ScalarCodec(min_value=0, max_value=100,
-        #                                        total_number_of_bits=self.dz,
-        #                                        number_of_active_bits=self.az)
-        self.encoder = FlexScalarCodec.FlexScalarCodec(total_number_of_bits=self.dz,
-                                                       number_of_active_bits=self.az)
+        self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-48, max_exponent=+49,
+                                                     mantissa_number_of_active_bits=[32, 16, 4, 2],
+                                                     mantissa_number_of_skip_bits=[4, 2, 1, 1],
+                                                     exponent_number_of_active_bits=32,
+                                                     exponent_number_of_skip_bits=4)
+                                                     # mantissa_number_of_active_bits=[16, 8, 4, 2, 1],
+                                                     # mantissa_number_of_skip_bits=[4, 2, 1, 1, 1],
+                                                     # exponent_number_of_active_bits=32,
+                                                     # exponent_number_of_skip_bits=8)
 
         # ----------------------------------------------------------------------
-        # Initialize layer 0: store the encoded observations.
+        # Initialize layer 0: a single-node layer to store up to $ c_{z} $ distinct
+        # symbols (encoded observations with $ d_{z} $ bits) at least $ b_{z} $ bits
+        # apart from each other. The default output value must be zero.
         # ----------------------------------------------------------------------
         self.wnn_layer0 = VGRAMNode.VGRAMNode(pattern_length=self.dz,
-                                              min_mem_size=1, max_mem_size=2 ** 11,
-                                              min_learn_dist=0, max_recall_dist=0,
+                                              min_mem_size=self.cz-1, max_mem_size=self.cz,
+                                              min_learn_dist=self.bz, max_recall_dist=self.bz,
                                               default_output=None, type_output=int)
-
-        # ----------------------------------------------------------------------
-        # Initialize layer 1: store the encoded hidden states, i.e. subsequences of encoded observations.
-        # ----------------------------------------------------------------------
-        # self.wnn_layer1 = VGRAMNode.VGRAMNode(pattern_length=self.dz,
-        #                                       min_mem_size=1, max_mem_size=2 ** 11,
-        #                                       min_learn_dist=0, max_recall_dist=self.pz,
-        #                                       default_output=None, type_output=int)
 
         # ----------------------------------------------------------------------
         # Initialize the previous observation.
@@ -288,33 +281,20 @@ class NPCLAD:
         self.curr_sub_seq_idx = self.sub_seq_counter
         self.sub_seqs[self.curr_sub_seq] = self.curr_sub_seq_idx
 
-        #s_n = np.zeros(self.cs, order='C', dtype=bool)
-        #for k in self.curr_sub_seq:
-        #    s_n += self.wnn_layer0.get_pattern_by_index(k)
-
-        # Learn the new pattern if there is not a perfect match
-        #l_n = self.wnn_layer1.learn(s_n, self.sub_seq_counter)
-
         # ----------------------------------------------------------------------
-        # Initialize layer 2: learn the transition from the prior to the predicted state belief.
+        # Initialize layer 1: learn the transition from the prior to the predicted state belief.
         # ----------------------------------------------------------------------
-        self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs,
+        self.wnn_layer1 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs,
                                                 min_mem_size=1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.bz + self.ps, max_recall_dist=self.bz + self.ps,
-                                                #min_learn_dist=0, max_recall_dist=self.bz + self.ps,
-                                                # min_learn_dist=0, max_recall_dist=0,
-                                                # min_learn_dist=0, max_recall_dist=self.dz + self.cs,
                                                 default_outputs=self.alphas_0, type_outputs=np.float64)
 
         # ----------------------------------------------------------------------
-        # Initialize layer 3: learn the observation belief given the predicted state belief.
+        # Initialize layer 2: learn the observation belief given the predicted state belief.
         # ----------------------------------------------------------------------
-        self.wnn_layer3 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs,
+        self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs,
                                                 min_mem_size=1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.ps, max_recall_dist=self.ps,
-                                                #min_learn_dist=0, max_recall_dist=self.ps,
-                                                # min_learn_dist=0, max_recall_dist=0,
-                                                # min_learn_dist=0, max_recall_dist=self.cs,
                                                 default_outputs=self.alphaz_0, type_outputs=np.float64)
 
         # ----------------------------------------------------------------------
@@ -322,7 +302,6 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         as_0_0_1 = np.copy(self.alphas_0)
         as_0_0_1[self.curr_sub_seq_idx] += self.learning_rate
-        #as_0_0_1[l_n] += self.learning_rate
         bs_0_0_1, _, _ = belief(self.cs, self.ps, as_0_0_1)
         self.bs_n_n_1 = np.copy(bs_0_0_1)
 
@@ -344,24 +323,35 @@ class NPCLAD:
         # Retrieve hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $
         # indexed by $ \\check{\\bf z}_{n} $ and $ {\\bf b}_{n|n-1} $.
         # ----------------------------------------------------------------------
-        alphas_n_n_1 = self.wnn_layer2.recall(np.concatenate((self.z_n, self.bs_n_n_1)))[0]
+        alphas_n_n_1 = self.wnn_layer1.recall(np.concatenate((self.z_n, self.bs_n_n_1)))[0]
 
+        # ----------------------------------------------------------------------
+        # Build the predicted belief $ {\\bf b}_{n+1|n} $ from the retrieved
+        # hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $.
+        # ----------------------------------------------------------------------
         self.bs_n_1_n, _, _ = belief(self.cs, self.ps, alphas_n_n_1)
 
         # ----------------------------------------------------------------------
         # Retrieve the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
         # indexed by $ {\\bf b}_{n+1|n} $.
         # ----------------------------------------------------------------------
-        alphaz_n_n_1 = self.wnn_layer3.recall(self.bs_n_1_n)[0]
+        alphaz_n_n_1 = self.wnn_layer2.recall(self.bs_n_1_n)[0]
 
+        # ----------------------------------------------------------------------
+        # Draw the predicted posterior $ \\tilde{\\bf p}_{n+1|n} $ from the retrieved
+        # hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $.
+        # ----------------------------------------------------------------------
         _, _, self.piz_n_1_n = belief(self.cz, self.pz, alphaz_n_n_1)
 
         # ----------------------------------------------------------------------
         # Predict the next observation $ \\hat{\\bf z}_{n+1|n} $.
         # ----------------------------------------------------------------------
         k_n_1_n = np.argmax(self.piz_n_1_n)
-        z_n_1_n = self.wnn_layer0.get_pattern_by_index(k_n_1_n)
+        z_n_1_n = self.wnn_layer0.get_pattern_by_output(k_n_1_n)
         p_n_1_n = self.piz_n_1_n[k_n_1_n]
+
+        if z_n_1_n is None:
+            print("ops")
 
         return z_n_1_n, k_n_1_n, p_n_1_n
 
@@ -392,37 +382,29 @@ class NPCLAD:
             self.curr_sub_seq_idx = self.sub_seq_counter
             self.sub_seqs[self.curr_sub_seq] = self.curr_sub_seq_idx
 
-        #s_n_1 = np.zeros(self.cs, order='C', dtype=bool)
-        #for k in self.curr_sub_seq:
-        #    s_n_1 += self.wnn_layer0.get_pattern_by_index(k)
-
-        # Find the index of the corresponding input-output pair in memory
-        #[d, l_n_1] = self.wnn_layer1.find_closest_pattern(s_n_1)
-
-        # Learn the new pattern if there is not a perfect match
-        #if d != 0:  # > self.az:
-        #    l_n_1 = self.ps*self.wnn_layer1.learn(s_n_1, 1)
-
         # ----------------------------------------------------------------------
         # Retrieve the hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $
         # indexed by $ \\check{\\bf z}_{n} $ and $ {\\bf b}_{n|n-1} $.
         # ----------------------------------------------------------------------
-        alphas_n_n_1 = self.wnn_layer2.recall(np.concatenate((self.z_n, self.bs_n_n_1)))[0]
+        alphas_n_n_1 = self.wnn_layer1.recall(np.concatenate((self.z_n, self.bs_n_n_1)))[0]
 
         # ----------------------------------------------------------------------
         # Update the hyper-parameters $ \\boldsymbol{\\alpha}_{n+1|n} $.
         # ----------------------------------------------------------------------
         alphas_n_1_n = np.copy(alphas_n_n_1)
         alphas_n_1_n[self.curr_sub_seq_idx] += self.learning_rate
-        #alphas_n_1_n[l_n_1] += self.learning_rate
 
+        # ----------------------------------------------------------------------
+        # Rebuild the predicted belief $ {\\bf b}_{n+1|n} $ from the updated
+        # hyper-parameters $ \\boldsymbol{\\alpha}_{n+1|n} $.
+        # ----------------------------------------------------------------------
         self.bs_n_1_n, _, _ = belief(self.cs, self.ps, alphas_n_1_n)
 
         # ----------------------------------------------------------------------
         # Retrieve the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
         # indexed by $ {\\bf b}_{n+1|n} $.
         # ----------------------------------------------------------------------
-        alphaz_n_n_1 = self.wnn_layer3.recall(self.bs_n_1_n)[0]
+        alphaz_n_n_1 = self.wnn_layer2.recall(self.bs_n_1_n)[0]
 
         # ----------------------------------------------------------------------
         # Update the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n+1|n} $.
@@ -433,8 +415,8 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         # Store the updated hyper-parameters.
         # ----------------------------------------------------------------------
-        self.wnn_layer2.learn(np.concatenate((self.z_n, self.bs_n_n_1)), alphas_n_1_n)
-        self.wnn_layer3.learn(self.bs_n_1_n, alphaz_n_1_n)
+        self.wnn_layer1.learn(np.concatenate((self.z_n, self.bs_n_n_1)), alphas_n_1_n)
+        self.wnn_layer2.learn(self.bs_n_1_n, alphaz_n_1_n)
 
         # ----------------------------------------------------------------------
         # Update the previous observations
@@ -475,23 +457,27 @@ class NPCLAD:
         z_n_1_n, k_n_1_n, p_n_1_n = self.predict()
 
         # ----------------------------------------------------------------------
-        # Step 3,4: Detect the anomaly and compute the corresponding score.
+        # Step 3: Compute the anomaly score.
         # ----------------------------------------------------------------------
-        if self.test == 1:
-            # Perform test 1: check if the predicted observation mismatches the encoded observation
-            if z_n_1_n is not None:
-                anomaly_n_1 = np.count_nonzero(z_n_1_n != z_n_1) > self.delta
-
-                score_n_1 = 1 - self.piz_n_1_n[k_n_1]
-            else:
-                anomaly_n_1 = False
-                score_n_1 = 0
-        elif self.test == 2:
-            # Perform test 2: check if the encoded observation (index) mismatches all predicted hypothesis
-            anomaly_n_1 = self.bz_n_1_n[k_n_1] == 0
-            score_n_1 = 1 - np.count_nonzero(self.bz_n_1_n) / self.cs
+        if z_n_1_n is not None:
+            score_n_1 = 1 - self.piz_n_1_n[k_n_1]
         else:
-            raise Exception("Invalid AD test type.")
+            score_n_1 = 0
+
+        # ----------------------------------------------------------------------
+        # Step 4: Detect the anomaly and compute the corresponding score.
+        # ----------------------------------------------------------------------
+        if z_n_1_n is not None:
+            if self.test == 1:
+                # Perform test 1: check if the predicted observation mismatches the encoded observation
+                anomaly_n_1 = np.count_nonzero(z_n_1_n != z_n_1) > self.delta
+            elif self.test == 2:
+                # Perform test 2: check if the encoded observation (index) mismatches all predicted hypothesis
+                anomaly_n_1 = score_n_1 > self.tau
+            else:
+                raise Exception("Invalid AD test type.")
+        else:
+            anomaly_n_1 = False
 
         # ----------------------------------------------------------------------
         # Step 5: Learn the non-parametric model.
@@ -513,25 +499,22 @@ class NPCLAD:
             (float): layer 0 memory size (MB)
             (float): layer 1 memory size (MB)
             (float): layer 2 memory size (MB)
-            (float): layer 3 memory size (MB)
         """
         layer0_mem_size_kilobytes, _, _ = self.wnn_layer0.memory_stats()
         layer0_mem_size_megabytes = layer0_mem_size_kilobytes / 1024
-        #layer1_mem_size_kilobytes, _, _ = self.wnn_layer1.memory_stats()
-        #layer1_mem_size_megabytes = layer1_mem_size_kilobytes / 1024
-        layer1_mem_size_megabytes = 0
+        layer1_mem_size_megabytes, _, _ = self.wnn_layer1.memory_stats()
         layer2_mem_size_megabytes, _, _ = self.wnn_layer2.memory_stats()
-        layer3_mem_size_megabytes, _, _ = self.wnn_layer3.memory_stats()
-        return layer0_mem_size_megabytes, layer1_mem_size_megabytes, layer2_mem_size_megabytes, layer3_mem_size_megabytes
+        return layer0_mem_size_megabytes, layer1_mem_size_megabytes, layer2_mem_size_megabytes
 
     def debug(self):
         """
         Debug network.
         """
         self.wnn_layer0.debug()
-        #self.wnn_layer1.debug()
+        self.wnn_layer1.debug()
         self.wnn_layer2.debug()
-        self.wnn_layer3.debug()
+        # gc.collect()
+        # print(gc.get_stats())
 
 
 class TestNPCLAD(unittest.TestCase):
@@ -544,15 +527,16 @@ class TestNPCLAD(unittest.TestCase):
     ps = 2 ** 3
     alphas = 2 ** -12
     az = 64
-    bz = 2 ** 2
+    bz = 2 ** 1
     cz = 2 ** 11
     dz = 2 ** 11
     pz = 2 ** 3
     alphaz = 2 ** -12
-    test = 1
-    min_overlap = 2 ** 5  # Minimum overlap between the predicted observation and the encoded observation
+    test = 2
+    min_overlap = 52  # Minimum overlap between the predicted observation and the encoded observation
     delta = 2*az - 2 * min_overlap
-    learning_rate = 2 ** 1
+    tau = 0.75
+    learning_rate = 2 ** 2
     sub_seq_len = 2 ** 2 - 1
     detector = None
     test_statistics = None
@@ -568,8 +552,9 @@ class TestNPCLAD(unittest.TestCase):
         Set up method: configure parameters and create a VGRAM node.
         """
         cls.detector = NPCLAD(cs=cls.cs, ps=cls.ps, alphas=cls.alphas,
-                              az=cls.az, bz=cls.bz, cz=cls.cz, dz=cls.dz, pz=cls.pz, alphaz=cls.alphaz, test=cls.test,
-                              delta=cls.delta, learning_rate=cls.learning_rate, sub_seq_len=cls.sub_seq_len)
+                              az=cls.az, bz=cls.bz, cz=cls.cz, dz=cls.dz, pz=cls.pz, alphaz=cls.alphaz,
+                              test=cls.test, delta=cls.delta, tau=cls.tau,
+                              learning_rate=cls.learning_rate, sub_seq_len=cls.sub_seq_len)
         cls.test_statistics = {}
 
     @classmethod
@@ -590,7 +575,6 @@ class TestNPCLAD(unittest.TestCase):
         layer0_memory_stats = cls.test_statistics["layer0_memory_stats"]
         layer1_memory_stats = cls.test_statistics["layer1_memory_stats"]
         layer2_memory_stats = cls.test_statistics["layer2_memory_stats"]
-        layer3_memory_stats = cls.test_statistics["layer3_memory_stats"]
 
         plt.subplots(constrained_layout=True)
         plt.axis('off')
@@ -632,7 +616,6 @@ class TestNPCLAD(unittest.TestCase):
         plt.plot(layer0_memory_stats, 'r-', label='Layer 0')
         plt.plot(layer1_memory_stats, 'g-', label='Layer 1')
         plt.plot(layer2_memory_stats, 'b-', label='Layer 2')
-        plt.plot(layer3_memory_stats, 'm-', label='Layer 3')
         ax.add_patch(plt.Rectangle((0, 0), cls.time_series_length / 2, 100, facecolor="red", alpha=0.1))
         ax.add_patch(plt.Rectangle((cls.time_series_length/2, 0), cls.time_series_length/2, 100, facecolor="green", alpha=0.1))
         plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length / 20))
@@ -653,6 +636,9 @@ class TestNPCLAD(unittest.TestCase):
         time_series_cte_value = 10
         number_of_spikes = 3
         spike_value = 100
+        seed = 0
+
+        np.random.seed(seed)
 
         # Build the time-series
         time_series = time_series_cte_value * np.ones(self.time_series_length, order='C', dtype=float)
@@ -672,7 +658,6 @@ class TestNPCLAD(unittest.TestCase):
         layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
         layer1_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
         layer2_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-        layer3_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
 
         # Initialize the detector
         self.detector.initialize()
@@ -687,7 +672,7 @@ class TestNPCLAD(unittest.TestCase):
             anomalies[n] = anomaly
             scores[n] = score
             predictions[n] = predicted_value
-            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n], layer3_memory_stats[n] = self.detector.memory_size()
+            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
             self.detector.debug()
 
         # Collect the statistics
@@ -702,7 +687,6 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
-        self.test_statistics["layer3_memory_stats"] = layer3_memory_stats
 
     def test_1_sin_time_series_with_spike_anomalies(self):
         """
@@ -710,12 +694,15 @@ class TestNPCLAD(unittest.TestCase):
         """
 
         # Time-series parameters
-        time_series_amplitude = 15000
-        time_series_offset = 15000
+        time_series_amplitude = 15
+        time_series_offset = 15
         time_series_frequency = 2 * np.pi / 10
-        time_series_phase = 0
-        number_of_spikes = 3
-        spike_value = 100000
+        time_series_phase = np.pi
+        number_of_spikes = 0
+        spike_value = 100
+        seed = 1
+
+        np.random.seed(seed)
 
         # Build the time-series
         time_series = time_series_offset + time_series_amplitude * \
@@ -737,7 +724,6 @@ class TestNPCLAD(unittest.TestCase):
         layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
         layer1_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
         layer2_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-        layer3_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
 
         # Initialize the detector
         self.detector.initialize()
@@ -752,7 +738,7 @@ class TestNPCLAD(unittest.TestCase):
             anomalies[n] = anomaly
             scores[n] = score
             predictions[n] = predicted_value
-            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n], layer3_memory_stats[n] = self.detector.memory_size()
+            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
             self.detector.debug()
 
         # Collect the statistics
@@ -767,7 +753,6 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
-        self.test_statistics["layer3_memory_stats"] = layer3_memory_stats
 
     def test_2_squared_time_series_with_spike_anomalies(self):
         """
@@ -778,9 +763,12 @@ class TestNPCLAD(unittest.TestCase):
         time_series_amplitude = 15
         time_series_offset = 30
         time_series_frequency = 2 * np.pi / 6
-        time_series_phase = 0
+        time_series_phase = np.pi
         number_of_spikes = 3
         spike_value = 100
+        seed = 0
+
+        np.random.seed(seed)
 
         # Build the time-series
         time_series = time_series_offset + time_series_amplitude * \
@@ -802,7 +790,6 @@ class TestNPCLAD(unittest.TestCase):
         layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
         layer1_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
         layer2_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-        layer3_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
 
         # Initialize the detector
         self.detector.initialize()
@@ -817,7 +804,7 @@ class TestNPCLAD(unittest.TestCase):
             anomalies[n] = anomaly
             scores[n] = score
             predictions[n] = predicted_value
-            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n], layer3_memory_stats[n] = self.detector.memory_size()
+            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
             self.detector.debug()
 
         # Collect the statistics
@@ -832,7 +819,6 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
-        self.test_statistics["layer3_memory_stats"] = layer3_memory_stats
 
 
 if __name__ == '__main__':
