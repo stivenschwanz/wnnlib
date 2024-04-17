@@ -146,6 +146,7 @@ class NPCLAD:
         self.bs_n_n_1 = None
         self.bs_n_1_n = None
         self.piz_n_1_n = None
+        self.pis_n_1_n = None
         self.z_n = None
         self.k_n = None
         self.codec = None
@@ -183,6 +184,7 @@ class NPCLAD:
         self.bs_n_n_1 = None
         self.bs_n_1_n = None
         self.piz_n_1_n = None
+        self.pis_n_1_n = None
         self.z_n = None
         self.k_n = None
         self.codec = None
@@ -248,10 +250,10 @@ class NPCLAD:
         # TODO: initialize as a function of (total_number_of_bits=self.dz, number_of_active_bits=self.az)
         # ----------------------------------------------------------------------
         self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-48, max_exponent=+49,
-                                                     mantissa_number_of_active_bits=[32, 16, 4, 2],
-                                                     mantissa_number_of_skip_bits=[4, 2, 1, 1],
+                                                     mantissa_number_of_active_bits=[16, 8, 4, 2],
+                                                     mantissa_number_of_skip_bits=[4, 3, 2, 1],
                                                      exponent_number_of_active_bits=32,
-                                                     exponent_number_of_skip_bits=4)
+                                                     exponent_number_of_skip_bits=9)
                                                      # mantissa_number_of_active_bits=[16, 8, 4, 2, 1],
                                                      # mantissa_number_of_skip_bits=[4, 2, 1, 1, 1],
                                                      # exponent_number_of_active_bits=32,
@@ -285,7 +287,7 @@ class NPCLAD:
         # Initialize layer 1: learn the transition from the prior to the predicted state belief.
         # ----------------------------------------------------------------------
         self.wnn_layer1 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs,
-                                                min_mem_size=1, max_mem_size=2 ** 11,
+                                                min_mem_size=2 ** 11-1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.bz + self.ps, max_recall_dist=self.bz + self.ps,
                                                 default_outputs=self.alphas_0, type_outputs=np.float64)
 
@@ -293,7 +295,7 @@ class NPCLAD:
         # Initialize layer 2: learn the observation belief given the predicted state belief.
         # ----------------------------------------------------------------------
         self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs,
-                                                min_mem_size=1, max_mem_size=2 ** 11,
+                                                min_mem_size=2 ** 11-1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.ps, max_recall_dist=self.ps,
                                                 default_outputs=self.alphaz_0, type_outputs=np.float64)
 
@@ -311,8 +313,10 @@ class NPCLAD:
 
         Returns:
             (bool[]): Predicted encoded observation vector $ \\hat{\bf z}_{n+1|n} = \\boldsymbol{\\mu}^{(\\hat{k})} $.
-            (int): Index of the predicted symbol.
-            (float): Probability of the predicted symbol $ {\\tilde{\\mu}}^{(\\hat{k})}_{n+1|n} $.
+            (int): Index of the predicted observation symbol.
+            (float): Probability of the predicted observation symbol $ {\\tilde{\\mu}}^{(\\hat{k})}_{n+1|n} $.
+            (int): Index of the predicted state symbol.
+            (float): Probability of the predicted state symbol $ {\\mu}^{(\\hat{j})}_{n+1|n} $.
         """
 
         # ----------------------------------------------------------------------
@@ -329,7 +333,13 @@ class NPCLAD:
         # Build the predicted belief $ {\\bf b}_{n+1|n} $ from the retrieved
         # hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $.
         # ----------------------------------------------------------------------
-        self.bs_n_1_n, _, _ = belief(self.cs, self.ps, alphas_n_n_1)
+        self.bs_n_1_n, _, self.pis_n_1_n = belief(self.cs, self.ps, alphas_n_n_1)
+
+        # ----------------------------------------------------------------------
+        # Predict the next state $ \\hat{\\bf s}_{n+1|n} $ for debug purposes.
+        # ----------------------------------------------------------------------
+        j_n_1_n = np.argmax(self.pis_n_1_n)
+        ps_n_1_n = self.pis_n_1_n[j_n_1_n]
 
         # ----------------------------------------------------------------------
         # Retrieve the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
@@ -348,12 +358,12 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         k_n_1_n = np.argmax(self.piz_n_1_n)
         z_n_1_n = self.wnn_layer0.get_pattern_by_output(k_n_1_n)
-        p_n_1_n = self.piz_n_1_n[k_n_1_n]
+        pz_n_1_n = self.piz_n_1_n[k_n_1_n]
 
         if z_n_1_n is None:
             print("ops")
 
-        return z_n_1_n, k_n_1_n, p_n_1_n
+        return z_n_1_n, k_n_1_n, pz_n_1_n, j_n_1_n, ps_n_1_n
 
     def learn(self, z_n_1, k_n_1):
         """
@@ -454,7 +464,7 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         # Step 2: Predict next observation.
         # ----------------------------------------------------------------------
-        z_n_1_n, k_n_1_n, p_n_1_n = self.predict()
+        z_n_1_n, k_n_1_n, _, j_n_1_n, _ = self.predict()
 
         # ----------------------------------------------------------------------
         # Step 3: Compute the anomaly score.
@@ -489,7 +499,7 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         y_n_1_n = self.decode(z_n_1_n)
 
-        return anomaly_n_1, score_n_1, y_n_1_n
+        return anomaly_n_1, score_n_1, y_n_1_n, k_n_1_n, k_n_1, j_n_1_n
 
     def memory_size(self):
         """
@@ -572,13 +582,16 @@ class TestNPCLAD(unittest.TestCase):
         anomalies = cls.test_statistics["anomalies"]
         scores = cls.test_statistics["scores"]
         predictions = cls.test_statistics["predictions"]
+        predicted_observation_symbols = cls.test_statistics["predicted_observation_symbols"]
+        observation_symbols = cls.test_statistics["observation_symbols"]
+        predicted_state_symbols = cls.test_statistics["predicted_state_symbols"]
         layer0_memory_stats = cls.test_statistics["layer0_memory_stats"]
         layer1_memory_stats = cls.test_statistics["layer1_memory_stats"]
         layer2_memory_stats = cls.test_statistics["layer2_memory_stats"]
 
         plt.subplots(constrained_layout=True)
         plt.axis('off')
-        ax = plt.subplot(511)
+        ax = plt.subplot(611)
         plt.plot(time_series, 'bo--', label='Time-series')
         plt.plot(predictions, 'm.--', label='Predictions')
         ax.add_patch(plt.Rectangle((0, 0), cls.time_series_length/2, 100, facecolor="red", alpha=0.1))
@@ -586,8 +599,8 @@ class TestNPCLAD(unittest.TestCase):
         plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length / 20))
         plt.grid(axis='x', color='0.95')
         plt.title(time_series_name)
-        plt.legend(loc="upper left")
-        ax = plt.subplot(512)
+        plt.legend(loc="upper right")
+        ax = plt.subplot(612)
         plt.yticks([1.0, 0.0], ["True", "False"])
         cmap = clrs.ListedColormap(['green', 'red'])
         plt.scatter(x=cls.time_indexes, y=ground_truth, c=ground_truth.astype(float), marker='d', cmap=cmap)
@@ -596,7 +609,7 @@ class TestNPCLAD(unittest.TestCase):
         plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length / 20))
         plt.grid(axis='x', color='0.95')
         plt.title('Ground-truth')
-        ax = plt.subplot(513)
+        ax = plt.subplot(613)
         plt.yticks([1.0, 0.0], ["True", "False"])
         cmap = clrs.ListedColormap(['green', 'red'])
         plt.scatter(x=cls.time_indexes, y=anomalies, c=anomalies.astype(float), marker='d', cmap=cmap)
@@ -605,14 +618,14 @@ class TestNPCLAD(unittest.TestCase):
         plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length / 20))
         plt.grid(axis='x', color='0.95')
         plt.title('Anomaly indicator')
-        ax = plt.subplot(514)
+        ax = plt.subplot(614)
         plt.plot(100 * scores, 'b-')
         ax.add_patch(plt.Rectangle((0, 0), cls.time_series_length / 2, 100, facecolor="red", alpha=0.1))
         ax.add_patch(plt.Rectangle((cls.time_series_length/2, 0), cls.time_series_length/2, 100, facecolor="green", alpha=0.1))
         plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length / 20))
         plt.grid(axis='x', color='0.95')
         plt.title('Anomaly score (%)')
-        ax = plt.subplot(515)
+        ax = plt.subplot(615)
         plt.plot(layer0_memory_stats, 'r-', label='Layer 0')
         plt.plot(layer1_memory_stats, 'g-', label='Layer 1')
         plt.plot(layer2_memory_stats, 'b-', label='Layer 2')
@@ -622,6 +635,18 @@ class TestNPCLAD(unittest.TestCase):
         plt.grid(axis='x', color='0.95')
         plt.title('Memory usage (KB)')
         plt.legend(loc="upper left")
+        #
+        ax = plt.subplot(616)
+        plt.plot(predicted_observation_symbols, 'ro-', label='Predicted observation symbol')
+        plt.plot(observation_symbols, 'g.-', label='Observed symbol')
+        plt.plot(predicted_state_symbols, 'b.-', label='Predicted state symbol')
+        ax.add_patch(plt.Rectangle((0, 0), cls.time_series_length / 2, 2048, facecolor="red", alpha=0.1))
+        ax.add_patch(plt.Rectangle((cls.time_series_length / 2, 0), cls.time_series_length / 2, 2048, facecolor="green",
+                                   alpha=0.1))
+        plt.xticks(np.arange(0, cls.time_series_length, step=cls.time_series_length / 20))
+        plt.grid(axis='x', color='0.95')
+        plt.title('Predicted symbols')
+        plt.legend(loc="upper right")
         plt.show(block=True)
 
         cls.detector = None
@@ -653,6 +678,9 @@ class TestNPCLAD(unittest.TestCase):
         anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
         scores = np.zeros(self.time_series_length, order='C', dtype=float)
         predictions = np.zeros(self.time_series_length, order='C', dtype=float)
+        predicted_observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
+        observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
+        predicted_state_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
 
         # Memory statistics
         layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
@@ -667,7 +695,12 @@ class TestNPCLAD(unittest.TestCase):
         for n in self.time_indexes:
             value = time_series[n]
             t = time.time()
-            anomaly, score, predicted_value = self.detector.handle(value)
+            (anomaly,
+             score,
+             predicted_value,
+             predicted_observation_symbol,
+             observation_symbol,
+             predicted_state_symbol,) = self.detector.handle(value)
             elapsed_time += time.time() - t
             anomalies[n] = anomaly
             scores[n] = score
@@ -684,6 +717,9 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["anomalies"] = anomalies
         self.test_statistics["scores"] = scores
         self.test_statistics["predictions"] = predictions
+        self.test_statistics["predicted_observation_symbols"] = predicted_observation_symbols
+        self.test_statistics["observation_symbols"] = observation_symbols
+        self.test_statistics["predicted_state_symbols"] = predicted_state_symbols
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
@@ -697,7 +733,7 @@ class TestNPCLAD(unittest.TestCase):
         time_series_amplitude = 15
         time_series_offset = 15
         time_series_frequency = 2 * np.pi / 10
-        time_series_phase = np.pi
+        time_series_phase = 0
         number_of_spikes = 0
         spike_value = 100
         seed = 1
@@ -719,6 +755,9 @@ class TestNPCLAD(unittest.TestCase):
         anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
         scores = np.zeros(self.time_series_length, order='C', dtype=float)
         predictions = np.zeros(self.time_series_length, order='C', dtype=float)
+        predicted_observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
+        observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
+        predicted_state_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
 
         # Memory statistics
         layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
@@ -733,11 +772,19 @@ class TestNPCLAD(unittest.TestCase):
         for n in self.time_indexes:
             value = time_series[n]
             t = time.time()
-            anomaly, score, predicted_value = self.detector.handle(value)
+            (anomaly,
+             score,
+             predicted_value,
+             predicted_observation_symbol,
+             observation_symbol,
+             predicted_state_symbol,) = self.detector.handle(value)
             elapsed_time += time.time() - t
             anomalies[n] = anomaly
             scores[n] = score
             predictions[n] = predicted_value
+            predicted_observation_symbols[n] = predicted_observation_symbol
+            observation_symbols[n] = observation_symbol
+            predicted_state_symbols[n] = predicted_state_symbol
             layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
             self.detector.debug()
 
@@ -750,6 +797,9 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["anomalies"] = anomalies
         self.test_statistics["scores"] = scores
         self.test_statistics["predictions"] = predictions
+        self.test_statistics["predicted_observation_symbols"] = predicted_observation_symbols
+        self.test_statistics["observation_symbols"] = observation_symbols
+        self.test_statistics["predicted_state_symbols"] = predicted_state_symbols
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
@@ -763,7 +813,7 @@ class TestNPCLAD(unittest.TestCase):
         time_series_amplitude = 15
         time_series_offset = 30
         time_series_frequency = 2 * np.pi / 6
-        time_series_phase = np.pi
+        time_series_phase = 0
         number_of_spikes = 3
         spike_value = 100
         seed = 0
@@ -785,6 +835,9 @@ class TestNPCLAD(unittest.TestCase):
         anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
         scores = np.zeros(self.time_series_length, order='C', dtype=float)
         predictions = np.zeros(self.time_series_length, order='C', dtype=float)
+        predicted_observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
+        observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
+        predicted_state_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
 
         # Memory statistics
         layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
@@ -799,7 +852,12 @@ class TestNPCLAD(unittest.TestCase):
         for n in self.time_indexes:
             value = time_series[n]
             t = time.time()
-            anomaly, score, predicted_value = self.detector.handle(value)
+            (anomaly,
+             score,
+             predicted_value,
+             predicted_observation_symbol,
+             observation_symbol,
+             predicted_state_symbol,) = self.detector.handle(value)
             elapsed_time += time.time() - t
             anomalies[n] = anomaly
             scores[n] = score
@@ -816,6 +874,9 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["anomalies"] = anomalies
         self.test_statistics["scores"] = scores
         self.test_statistics["predictions"] = predictions
+        self.test_statistics["predicted_observation_symbols"] = predicted_observation_symbols
+        self.test_statistics["observation_symbols"] = observation_symbols
+        self.test_statistics["predicted_state_symbols"] = predicted_state_symbols
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
