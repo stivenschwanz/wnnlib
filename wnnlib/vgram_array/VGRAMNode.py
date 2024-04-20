@@ -215,11 +215,14 @@ class VGRAMNode:
             np.random.shuffle(min_freq_indexes)
             max_pruning = self.max_mem_size - self.min_mem_size
             prune_indexes = min_freq_indexes[:max_pruning]
-            self.input_patterns[prune_indexes, :] = np.zeros(self.pattern_length, order='C', dtype=bool)
-            self.output_values[prune_indexes] = self.default_output
+            # Commenting these lines, since there is no need to blank the input pattern-output value pairs. Moreover,
+            # since the default output can be None, the second line must be commented to prevent assigning a None output
+            # to the array of output values
+            # self.input_patterns[prune_indexes, :] = np.zeros(self.pattern_length, order='C', dtype=bool)
+            # self.output_values[prune_indexes] = self.default_output
+            # At the end of the day, the input patter-output value pairs are erased at this line
             self.valid_pairs[prune_indexes] = False
             self.num_valid_pairs -= len(prune_indexes)
-
         if self.num_valid_pairs == np.uint(0):
             # Store the first input - output pair
             self.input_patterns[0, :] = input_pattern

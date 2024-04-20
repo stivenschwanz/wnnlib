@@ -9,6 +9,7 @@ from wnnlib.sparse_codec import ScalarCodec
 from wnnlib.sparse_codec import FlexScalarCodec
 import gc
 
+
 def belief(c, p, alpha):
     """
     Build a belief representation from the hyper-parameters $ \\boldsymbol{\\alpha} $.
@@ -53,6 +54,8 @@ class NPCLAD:
     This class implements a continuous learning (CL), anomaly detector (AD) for streamed sequences of observations
     using a non-parametric Bayesian procedure to build a suitable model of the underlying stochastic process emitting
     the observations.
+
+    Inefficient, slightly pretty, hopefully correct Pythonic (yuck) implementation of the nP-CLAD method.
     """
 
     def __init__(self, cs, ps, alphas,
@@ -250,14 +253,10 @@ class NPCLAD:
         # TODO: initialize as a function of (total_number_of_bits=self.dz, number_of_active_bits=self.az)
         # ----------------------------------------------------------------------
         self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-48, max_exponent=+49,
-                                                     mantissa_number_of_active_bits=[16, 8, 4, 2],
-                                                     mantissa_number_of_skip_bits=[4, 3, 2, 1],
-                                                     exponent_number_of_active_bits=32,
-                                                     exponent_number_of_skip_bits=9)
-                                                     # mantissa_number_of_active_bits=[16, 8, 4, 2, 1],
-                                                     # mantissa_number_of_skip_bits=[4, 2, 1, 1, 1],
-                                                     # exponent_number_of_active_bits=32,
-                                                     # exponent_number_of_skip_bits=8)
+                                                     mantissa_number_of_active_bits=[8, 4, 2],
+                                                     mantissa_number_of_skip_bits=[3, 2, 1],
+                                                     exponent_number_of_active_bits=16,
+                                                     exponent_number_of_skip_bits=4)
 
         # ----------------------------------------------------------------------
         # Initialize layer 0: a single-node layer to store up to $ c_{z} $ distinct
@@ -359,9 +358,6 @@ class NPCLAD:
         k_n_1_n = np.argmax(self.piz_n_1_n)
         z_n_1_n = self.wnn_layer0.get_pattern_by_output(k_n_1_n)
         pz_n_1_n = self.piz_n_1_n[k_n_1_n]
-
-        if z_n_1_n is None:
-            print("ops")
 
         return z_n_1_n, k_n_1_n, pz_n_1_n, j_n_1_n, ps_n_1_n
 
@@ -470,9 +466,9 @@ class NPCLAD:
         # Step 3: Compute the anomaly score.
         # ----------------------------------------------------------------------
         if z_n_1_n is not None:
-            score_n_1 = 1 - self.piz_n_1_n[k_n_1]
+            score_n_1 = 1.0 - self.piz_n_1_n[k_n_1]
         else:
-            score_n_1 = 0
+            score_n_1 = 0.0
 
         # ----------------------------------------------------------------------
         # Step 4: Detect the anomaly and compute the corresponding score.
@@ -533,13 +529,13 @@ class TestNPCLAD(unittest.TestCase):
     """
 
     # Model parameters
-    cs = 2 ** 11
+    cs = 2 ** 10
     ps = 2 ** 3
     alphas = 2 ** -12
     az = 64
-    bz = 2 ** 1
-    cz = 2 ** 11
-    dz = 2 ** 11
+    bz = 2 ** 2
+    cz = 2 ** 10
+    dz = 2 ** 10
     pz = 2 ** 3
     alphaz = 2 ** -12
     test = 2
@@ -547,7 +543,7 @@ class TestNPCLAD(unittest.TestCase):
     delta = 2*az - 2 * min_overlap
     tau = 0.75
     learning_rate = 2 ** 2
-    sub_seq_len = 2 ** 2 - 1
+    sub_seq_len = 2 ** 3
     detector = None
     test_statistics = None
 
@@ -635,7 +631,6 @@ class TestNPCLAD(unittest.TestCase):
         plt.grid(axis='x', color='0.95')
         plt.title('Memory usage (KB)')
         plt.legend(loc="upper left")
-        #
         ax = plt.subplot(616)
         plt.plot(predicted_observation_symbols, 'ro-', label='Predicted observation symbol')
         plt.plot(observation_symbols, 'g.-', label='Observed symbol')
@@ -652,106 +647,8 @@ class TestNPCLAD(unittest.TestCase):
         cls.detector = None
         cls.test_statistics = None
 
-    def test_0_cte_time_series_with_spike_anomalies(self):
-        """
-        Test case 0: Constant valued time-series with abnormal spikes.
-        """
-
-        # Time-series parameters
-        time_series_cte_value = 10
-        number_of_spikes = 3
-        spike_value = 100
-        seed = 0
-
-        np.random.seed(seed)
-
-        # Build the time-series
-        time_series = time_series_cte_value * np.ones(self.time_series_length, order='C', dtype=float)
-        spike_locations = np.unique(np.random.choice(self.anomaly_indexes, number_of_spikes, replace=True))
-        time_series[spike_locations] = spike_value
-
-        # Build the ground_truth
-        ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
-        ground_truth[spike_locations] = True
-
-        # Output vectors
-        anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
-        scores = np.zeros(self.time_series_length, order='C', dtype=float)
-        predictions = np.zeros(self.time_series_length, order='C', dtype=float)
-        predicted_observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
-        observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
-        predicted_state_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
-
-        # Memory statistics
-        layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-        layer1_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-        layer2_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-
-        # Initialize the detector
-        self.detector.initialize()
-
-        # Run the detector
-        elapsed_time = 0
-        for n in self.time_indexes:
-            value = time_series[n]
-            t = time.time()
-            (anomaly,
-             score,
-             predicted_value,
-             predicted_observation_symbol,
-             observation_symbol,
-             predicted_state_symbol,) = self.detector.handle(value)
-            elapsed_time += time.time() - t
-            anomalies[n] = anomaly
-            scores[n] = score
-            predictions[n] = predicted_value
-            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
-            self.detector.debug()
-
-        # Collect the statistics
-        self.test_statistics["elapsed_detect_time"] = elapsed_time
-        self.test_statistics["average_detect_time"] = 100 * elapsed_time / self.time_series_length
-        self.test_statistics["time_series_name"] = 'Constant-valued time-series with random spikes'
-        self.test_statistics["time_series"] = time_series
-        self.test_statistics["ground_truth"] = ground_truth
-        self.test_statistics["anomalies"] = anomalies
-        self.test_statistics["scores"] = scores
-        self.test_statistics["predictions"] = predictions
-        self.test_statistics["predicted_observation_symbols"] = predicted_observation_symbols
-        self.test_statistics["observation_symbols"] = observation_symbols
-        self.test_statistics["predicted_state_symbols"] = predicted_state_symbols
-        self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
-        self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
-        self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
-
-    def test_1_sin_time_series_with_spike_anomalies(self):
-        """
-        Test case 1: Sinusoidal time-series with abnormal spikes.
-        """
-
-        # Time-series parameters
-        time_series_amplitude = 15
-        time_series_offset = 15
-        time_series_frequency = 2 * np.pi / 10
-        time_series_phase = 0
-        number_of_spikes = 0
-        spike_value = 100
-        seed = 1
-
-        np.random.seed(seed)
-
-        # Build the time-series
-        time_series = time_series_offset + time_series_amplitude * \
-                      np.sin(np.array(self.time_indexes, order='C',
-                                      dtype=float) * time_series_frequency + time_series_phase)
-        spike_locations = np.unique(np.random.choice(self.anomaly_indexes, number_of_spikes, replace=True))
-        time_series[spike_locations] = spike_value
-
-        # Build the ground_truth
-        ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
-        ground_truth[spike_locations] = True
-
-        # Output vectors
+    def runTest(self, time_series, ground_truth):
+        # Initialize the output vectors
         anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
         scores = np.zeros(self.time_series_length, order='C', dtype=float)
         predictions = np.zeros(self.time_series_length, order='C', dtype=float)
@@ -791,7 +688,7 @@ class TestNPCLAD(unittest.TestCase):
         # Collect the statistics
         self.test_statistics["elapsed_detect_time"] = elapsed_time
         self.test_statistics["average_detect_time"] = 100 * elapsed_time / self.time_series_length
-        self.test_statistics["time_series_name"] = 'Sinusoidal time-series with random spikes'
+        self.test_statistics["time_series_name"] = 'Constant-valued time-series with random spikes'
         self.test_statistics["time_series"] = time_series
         self.test_statistics["ground_truth"] = ground_truth
         self.test_statistics["anomalies"] = anomalies
@@ -803,6 +700,61 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
+
+    def test_0_cte_time_series_with_spike_anomalies(self):
+        """
+        Test case 0: Constant valued time-series with abnormal spikes.
+        """
+
+        # Time-series parameters
+        time_series_cte_value = 10
+        number_of_spikes = 3
+        spike_value = 100
+        seed = 0
+
+        np.random.seed(seed)
+
+        # Build the time-series
+        time_series = time_series_cte_value * np.ones(self.time_series_length, order='C', dtype=float)
+        spike_locations = np.unique(np.random.choice(self.anomaly_indexes, number_of_spikes, replace=True))
+        time_series[spike_locations] = spike_value
+
+        # Build the ground_truth
+        ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
+        ground_truth[spike_locations] = True
+
+        # Run the test
+        self.runTest(time_series, ground_truth)
+
+    def test_1_sin_time_series_with_spike_anomalies(self):
+        """
+        Test case 1: Sinusoidal time-series with abnormal spikes.
+        """
+
+        # Time-series parameters
+        time_series_amplitude = 15
+        time_series_offset = 15
+        time_series_frequency = 2 * np.pi / 6
+        time_series_phase = 0
+        number_of_spikes = 3
+        spike_value = 100
+        seed = 1
+
+        np.random.seed(seed)
+
+        # Build the time-series
+        time_series = time_series_offset + time_series_amplitude * \
+                      np.sin(np.array(self.time_indexes, order='C',
+                                      dtype=float) * time_series_frequency + time_series_phase)
+        spike_locations = np.unique(np.random.choice(self.anomaly_indexes, number_of_spikes, replace=True))
+        time_series[spike_locations] = spike_value
+
+        # Build the ground_truth
+        ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
+        ground_truth[spike_locations] = True
+
+        # Run the test
+        self.runTest(time_series, ground_truth)
 
     def test_2_squared_time_series_with_spike_anomalies(self):
         """
@@ -831,55 +783,8 @@ class TestNPCLAD(unittest.TestCase):
         ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
         ground_truth[spike_locations] = True
 
-        # Output vectors
-        anomalies = np.zeros(self.time_series_length, order='C', dtype=bool)
-        scores = np.zeros(self.time_series_length, order='C', dtype=float)
-        predictions = np.zeros(self.time_series_length, order='C', dtype=float)
-        predicted_observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
-        observation_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
-        predicted_state_symbols = np.zeros(self.time_series_length, order='C', dtype=int)
-
-        # Memory statistics
-        layer0_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-        layer1_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-        layer2_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
-
-        # Initialize the detector
-        self.detector.initialize()
-
-        # Run the detector
-        elapsed_time = 0
-        for n in self.time_indexes:
-            value = time_series[n]
-            t = time.time()
-            (anomaly,
-             score,
-             predicted_value,
-             predicted_observation_symbol,
-             observation_symbol,
-             predicted_state_symbol,) = self.detector.handle(value)
-            elapsed_time += time.time() - t
-            anomalies[n] = anomaly
-            scores[n] = score
-            predictions[n] = predicted_value
-            layer0_memory_stats[n], layer1_memory_stats[n], layer2_memory_stats[n] = self.detector.memory_size()
-            self.detector.debug()
-
-        # Collect the statistics
-        self.test_statistics["elapsed_detect_time"] = elapsed_time
-        self.test_statistics["average_detect_time"] = 100 * elapsed_time / self.time_series_length
-        self.test_statistics["time_series_name"] = 'Squared time-series with random spikes'
-        self.test_statistics["time_series"] = time_series
-        self.test_statistics["ground_truth"] = ground_truth
-        self.test_statistics["anomalies"] = anomalies
-        self.test_statistics["scores"] = scores
-        self.test_statistics["predictions"] = predictions
-        self.test_statistics["predicted_observation_symbols"] = predicted_observation_symbols
-        self.test_statistics["observation_symbols"] = observation_symbols
-        self.test_statistics["predicted_state_symbols"] = predicted_state_symbols
-        self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
-        self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
-        self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
+        # Run the test
+        self.runTest(time_series, ground_truth)
 
 
 if __name__ == '__main__':
