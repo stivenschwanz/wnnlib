@@ -23,10 +23,15 @@ class FlexScalarCodec:
     """
 
     def __init__(self, min_exponent=-48, max_exponent=+49,
-                 mantissa_number_of_active_bits=[32, 16, 4, 2],
-                 mantissa_number_of_skip_bits=[4, 2, 1, 1],
-                 exponent_number_of_active_bits=32,
+                 mantissa_number_of_active_bits=[8, 4, 2],
+                 mantissa_number_of_skip_bits=[3, 2, 1],
+                 exponent_number_of_active_bits=16,
                  exponent_number_of_skip_bits=4,
+                 # min_exponent=-48, max_exponent=+49,
+                 # mantissa_number_of_active_bits=[16, 8, 4, 2],
+                 # mantissa_number_of_skip_bits=[4, 3, 2, 1],
+                 # exponent_number_of_active_bits=32,
+                 # exponent_number_of_skip_bits=9,
                  obfuscate=False):
         """
         Initialize the sparse codec.
@@ -124,6 +129,7 @@ class FlexScalarCodec:
         # Get mantissa + exponent (base 10)
         (m, e) = frexp10(input_value)
 
+        # The magic happens here
         m /= 2
 
         # Breakdown the mantissa
@@ -175,6 +181,7 @@ class FlexScalarCodec:
         e = self.exponent_codec.decode(sparse_vector[start_bit:end_bit])
         i = int(np.round(e))
 
+        # Undoing the magic
         m *= 2
 
         # Combine the mantissa + exponent (base 10)
@@ -192,7 +199,11 @@ class TestFlexScalarCodec(unittest.TestCase):
         """
         Test case 0: load generated sparse vectors.
         """
-        scalar_codec = FlexScalarCodec()
+        scalar_codec = FlexScalarCodec(min_exponent=-48, max_exponent=+49,
+                                       mantissa_number_of_active_bits=[8, 4, 2],
+                                       mantissa_number_of_skip_bits=[3, 2, 1],
+                                       exponent_number_of_active_bits=16,
+                                       exponent_number_of_skip_bits=4)
 
         input_values = 1000000 * np.random.random(size=10)
         for input_value in input_values:
