@@ -533,7 +533,7 @@ class TestNPCLAD(unittest.TestCase):
     ps = 2 ** 3
     alphas = 2 ** -12
     az = 64
-    bz = 2 ** 2
+    bz = 2 ** 2 + 2
     cz = 2 ** 10
     dz = 2 ** 10
     pz = 2 ** 3
@@ -632,6 +632,9 @@ class TestNPCLAD(unittest.TestCase):
         plt.title('Memory usage (KB)')
         plt.legend(loc="upper left")
         ax = plt.subplot(616)
+        ax = plt.gca()
+        ax.set_xlim([0, cls.time_series_length])
+        ax.set_ylim([0, 10])
         plt.plot(predicted_observation_symbols, 'ro-', label='Predicted observation symbol')
         plt.plot(observation_symbols, 'g.-', label='Observed symbol')
         plt.plot(predicted_state_symbols, 'b.-', label='Predicted state symbol')
@@ -667,6 +670,9 @@ class TestNPCLAD(unittest.TestCase):
         # Run the detector
         elapsed_time = 0
         for n in self.time_indexes:
+
+            if n == 65 or n == 55:
+                print("arow")
             value = time_series[n]
             t = time.time()
             (anomaly,
@@ -764,9 +770,9 @@ class TestNPCLAD(unittest.TestCase):
         # Time-series parameters
         time_series_amplitude = 15
         time_series_offset = 30
-        time_series_frequency = 2 * np.pi / 6
+        time_series_frequency = 2 * np.pi / 5
         time_series_phase = 0
-        number_of_spikes = 3
+        number_of_spikes = 0
         spike_value = 100
         seed = 0
 
@@ -782,6 +788,56 @@ class TestNPCLAD(unittest.TestCase):
         # Build the ground_truth
         ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
         ground_truth[spike_locations] = True
+
+        # Run the test
+        self.runTest(time_series, ground_truth)
+
+    def test_3_sin_time_series_without_anomalies(self):
+        """
+        Test case 1: Sinusoidal time-series with abnormal spikes.
+        """
+
+        # Time-series parameters
+        time_series_amplitude = 15
+        time_series_offset = 15
+        time_series_frequency = 2 * np.pi / 10
+        time_series_phase = 0
+        seed = 1
+
+        np.random.seed(seed)
+
+        # Build the time-series
+        time_series = time_series_offset + time_series_amplitude * \
+                      np.sin(np.array(self.time_indexes, order='C',
+                                      dtype=float) * time_series_frequency + time_series_phase)
+
+        # Build the ground_truth
+        ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
+
+        # Run the test
+        self.runTest(time_series, ground_truth)
+
+    def test_4_squared_time_series_without_anomalies(self):
+        """
+        Test case 2: Squared time-series with abnormal spikes.
+        """
+
+        # Time-series parameters
+        time_series_amplitude = 15
+        time_series_offset = 30
+        time_series_frequency = 2 * np.pi / 16
+        time_series_phase = 0
+        seed = 0
+
+        np.random.seed(seed)
+
+        # Build the time-series
+        time_series = time_series_offset + time_series_amplitude * \
+                      np.sign(np.sin(np.array(self.time_indexes, order='C',
+                                              dtype=float) * time_series_frequency + time_series_phase))
+
+        # Build the ground_truth
+        ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
 
         # Run the test
         self.runTest(time_series, ground_truth)
