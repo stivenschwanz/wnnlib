@@ -39,6 +39,26 @@ class BitUtils:
             i += 1
         return arr
 
+    @staticmethod
+    def high(n):
+        return np.ones(n, order='C', dtype=bool)
+
+    @staticmethod
+    def low(n):
+        return np.zeros(n, order='C', dtype=bool)
+
+    @staticmethod
+    def sparse_vector(seq):
+        vecs = []
+        for (n, func) in seq:
+            if n > 0:
+                vecs.append(func(n))
+        return np.concatenate(vecs)
+
+    @staticmethod
+    def mean_index(vec):
+        return np.mean(np.nonzero(vec))
+
 
 class TestBitUtils(unittest.TestCase):
     """

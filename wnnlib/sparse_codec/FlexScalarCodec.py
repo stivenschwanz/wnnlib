@@ -22,11 +22,13 @@ class FlexScalarCodec:
 
     """
 
-    def __init__(self, min_exponent=-48, max_exponent=+49,
+    def __init__(self, min_exponent=-100, max_exponent=+100,
                  mantissa_number_of_active_bits=[8, 4, 2],
                  mantissa_number_of_skip_bits=[3, 2, 1],
+                 mantissa_number_of_gap_bits=[1, 1, 1],
                  exponent_number_of_active_bits=16,
                  exponent_number_of_skip_bits=4,
+                 exponent_number_of_gap_bits=1,
                  # min_exponent=-48, max_exponent=+49,
                  # mantissa_number_of_active_bits=[16, 8, 4, 2],
                  # mantissa_number_of_skip_bits=[4, 3, 2, 1],
@@ -54,8 +56,10 @@ class FlexScalarCodec:
         self.number_of_mantissa_codecs = len(mantissa_number_of_active_bits)
         self.mantissa_number_of_active_bits = mantissa_number_of_active_bits
         self.mantissa_number_of_skip_bits = mantissa_number_of_skip_bits
+        self.mantissa_number_of_gap_bits = mantissa_number_of_gap_bits
         self.exponent_number_of_active_bits = exponent_number_of_active_bits
         self.exponent_number_of_skip_bits = exponent_number_of_skip_bits
+        self.exponent_number_of_gap_bits = exponent_number_of_gap_bits
 
         # ----------------------------------------------------------------------
         # Check parameters
@@ -68,7 +72,9 @@ class FlexScalarCodec:
         # Check the number of activated bits against the number of skip bits
         for i in range(0, self.number_of_mantissa_codecs):
             assert self.mantissa_number_of_active_bits[i] >= self.mantissa_number_of_skip_bits[i] > 0
-        assert exponent_number_of_active_bits > exponent_number_of_skip_bits > 0
+            assert self.mantissa_number_of_gap_bits[i] >= 1
+        assert self.exponent_number_of_active_bits > self.exponent_number_of_skip_bits > 0
+        assert self.exponent_number_of_gap_bits >= 1
 
         # ----------------------------------------------------------------------
         # Initialize the encoder
@@ -78,33 +84,40 @@ class FlexScalarCodec:
         self.total_number_of_useful_bits = 0
 
         # Initialize the mantissa scalar codecs
-        self.mantissa_min_value = -50
-        self.mantissa_max_value = 50
+        self.mantissa_min_value = -500
+        self.mantissa_max_value = 500
         self.mantissa_number_of_buckets = self.mantissa_max_value - self.mantissa_min_value + 1
         self.mantissa_codecs = []
         self.mantissa_total_number_of_bits = []
         for i in range(0, self.number_of_mantissa_codecs):
-            self.mantissa_total_number_of_bits.append(self.mantissa_number_of_buckets * \
-                                                      self.mantissa_number_of_skip_bits[i] + \
-                                                      self.mantissa_number_of_active_bits[i] - 1)
+            self.mantissa_total_number_of_bits.append(int(np.ceil(self.mantissa_number_of_buckets * \
+                                                      self.mantissa_number_of_skip_bits[i] / \
+                                                      (self.mantissa_number_of_active_bits[i] - 1)) + \
+                                                      self.mantissa_number_of_active_bits[i] +
+                                                      self.mantissa_number_of_gap_bits[i]))
             self.total_number_of_useful_bits += self.mantissa_total_number_of_bits[i]
             self.mantissa_codecs.append(ScalarCodec.ScalarCodec(self.mantissa_min_value, self.mantissa_max_value,
                                                                 self.mantissa_total_number_of_bits[i],
                                                                 self.mantissa_number_of_active_bits[i],
-                                                                self.mantissa_number_of_skip_bits[i]))
+                                                                self.mantissa_number_of_skip_bits[i],
+                                                                self.mantissa_number_of_gap_bits[i]))
 
         # Initialize the exponent scalar codec
         self.exponent_min_value = min_exponent
         self.exponent_max_value = max_exponent
         self.exponent_number_of_buckets = self.exponent_max_value - self.exponent_min_value + 1
 
-        exponent_total_number_of_bits = self.exponent_number_of_buckets * self.exponent_number_of_skip_bits + \
-                                        self.exponent_number_of_active_bits - 1
+        exponent_total_number_of_bits = int(np.ceil(self.exponent_number_of_buckets * \
+                                        self.exponent_number_of_skip_bits / \
+                                        (self.exponent_number_of_active_bits - 1) + \
+                                        self.exponent_number_of_active_bits + \
+                                        self.exponent_number_of_gap_bits))
         self.total_number_of_useful_bits += exponent_total_number_of_bits
         self.exponent_codec = ScalarCodec.ScalarCodec(self.exponent_min_value, self.exponent_max_value,
-                                                      exponent_total_number_of_bits,
+                                                      self.exponent_total_number_of_bits,
                                                       self.exponent_number_of_active_bits,
-                                                      self.exponent_number_of_skip_bits)
+                                                      self.exponent_number_of_skip_bits,
+                                                      self.exponent_number_of_gap_bits)
 
         # Trailling bits
         self.total_number_of_bits = 2**int(math.ceil(math.log2(self.total_number_of_useful_bits)))
@@ -137,9 +150,9 @@ class FlexScalarCodec:
         s = 1
         r = []
         for i in range(0, self.number_of_mantissa_codecs):
-            s = 100 * s
+            s = 1000 * s
             p = int(np.round(s * m))
-            r.append(p - 100 * q)
+            r.append(p - 1000 * q)
             q = p
 
         # Encode the mantissa + exponent
@@ -174,7 +187,7 @@ class FlexScalarCodec:
             start_bit = end_bit
             end_bit += self.mantissa_total_number_of_bits[i]
             r = int(np.round(self.mantissa_codecs[i].decode(sparse_vector[start_bit:end_bit])))
-            s *= 0.01
+            s *= 0.001
             m += s * r
         start_bit = end_bit
         end_bit = self.last_useful_bit
@@ -199,18 +212,20 @@ class TestFlexScalarCodec(unittest.TestCase):
         """
         Test case 0: load generated sparse vectors.
         """
-        scalar_codec = FlexScalarCodec(min_exponent=-48, max_exponent=+49,
-                                       mantissa_number_of_active_bits=[8, 4, 2],
-                                       mantissa_number_of_skip_bits=[3, 2, 1],
+        scalar_codec = FlexScalarCodec(min_exponent=-100, max_exponent=+100,
+                                       mantissa_number_of_active_bits=[16, 8],
+                                       mantissa_number_of_skip_bits=[2, 2],
+                                       mantissa_number_of_gap_bits=[1, 1],
                                        exponent_number_of_active_bits=16,
-                                       exponent_number_of_skip_bits=4)
+                                       exponent_number_of_skip_bits=4,
+                                       exponent_number_of_gap_bits=1)
 
         input_values = 1000000 * np.random.random(size=10)
         for input_value in input_values:
             print('------------------------------')
             print('input_value=', input_value)
             sparse_vector = scalar_codec.encode(input_value)
-            print('sparce_vector=', sparse_vector)
+            #print('sparce_vector=', sparse_vector)
             decoded_value = scalar_codec.decode(sparse_vector)
             print('decoded_value=', decoded_value)
 
