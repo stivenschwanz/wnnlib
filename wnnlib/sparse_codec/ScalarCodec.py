@@ -43,7 +43,7 @@ class ScalarCodec:
         assert number_of_active_bits >= number_of_skip_bits > 0
 
         # Check the number of bits against the number of gap bits
-        assert number_of_gap_bits >= 1
+        assert number_of_gap_bits >= 0
 
         # ----------------------------------------------------------------------
         # Save the parameters
@@ -66,18 +66,35 @@ class ScalarCodec:
         self.number_of_buckets = int(np.ceil(self.range_value / self.res_value)) + 1
 
         # Compute the total number of bits
-        self.total_number_of_bits = int(np.ceil(self.number_of_buckets * self.number_of_skip_bits / \
-                       (self.number_of_active_bits - 1)) + self.number_of_active_bits + self.number_of_gap_bits)
+        if self.number_of_gap_bits > 0:
+            self.total_number_of_bits = int(np.ceil(self.number_of_buckets * self.number_of_skip_bits / \
+                           (self.number_of_active_bits - 1)) + self.number_of_active_bits + self.number_of_gap_bits)
+        else:
+            self.total_number_of_bits = self.number_of_buckets * self.number_of_skip_bits + self.number_of_active_bits
 
         # Precomputing encoding constants
         self.e1 = +np.float64(self.total_number_of_bits - self.number_of_active_bits - self.number_of_gap_bits) / np.float64(self.range_value)
         self.e2 = -self.e1 * np.float64(self.min_value)
-        self.e3 = (self.number_of_active_bits - 1) * self.e1
-        self.e4 = 0
+
+        if self.number_of_gap_bits > 0:
+            self.e3 = (self.number_of_active_bits - 1) * self.e1
+            self.e4 = 0
+        else:
+            self.e3 = 0
+            self.e4 = 0
 
         # Precomputing decoding constants
         self.d1 = +1.0 / self.e1
         self.d2 = -self.e2 / self.e1
+
+    def get_total_number_of_bits(self):
+        """
+        Get the total umber of bits required to properly encoded the input values with the desired resolution.
+
+        Returns:
+           (int): The total number of bits.
+        """
+        return self.total_number_of_bits
 
     def encode(self, input_value):
         """
@@ -170,7 +187,7 @@ class TestScalarCodec(unittest.TestCase):
 
     def test_1_codec(self):
         """
-        Test case 2: load generated sparse vectors.
+        Test case 1:  check if decoded values are compatible with the configured resolution.
         """
         resolution = 0.001
 
@@ -191,6 +208,31 @@ class TestScalarCodec(unittest.TestCase):
             print('decoded_value-input_value=', decoded_value-input_value)
             assert np.abs(decoded_value-input_value) < resolution
             print('(decoded_value-input_value)/input_value (%)=', 100*(decoded_value-input_value)/input_value)
+
+    def test_2_codec(self):
+        """
+        Test case 2:  check if decoded values are compatible with the configured resolution.
+        """
+        resolution = 1
+
+        self.scalar_codec = ScalarCodec(min_value=-50,
+                                        max_value=50,
+                                        res_value=resolution,
+                                        number_of_active_bits=16,
+                                        number_of_skip_bits=6,
+                                        number_of_gap_bits=0)
+
+        #input_values = 2 * np.random.random(size=1000) - 1
+        #for input_value in input_values:
+        for input_value in [1, 2]:
+            print('input_value=', input_value)
+            sparse_vector = self.scalar_codec.encode(input_value)
+            print('sparce_vector=', sparse_vector)
+            decoded_value = self.scalar_codec.decode(sparse_vector)
+            print('decoded_value=', decoded_value)
+            print('decoded_value-input_value=', decoded_value - input_value)
+            assert np.abs(decoded_value - input_value) < resolution
+            print('(decoded_value-input_value)/input_value (%)=', 100 * (decoded_value - input_value) / input_value)
 
 
 if __name__ == '__main__':
