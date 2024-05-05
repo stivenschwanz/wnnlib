@@ -252,11 +252,13 @@ class NPCLAD:
         # active bits.
         # TODO: initialize as a function of (total_number_of_bits=self.dz, number_of_active_bits=self.az)
         # ----------------------------------------------------------------------
-        self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-48, max_exponent=+49,
-                                                     mantissa_number_of_active_bits=[8, 4, 2],
-                                                     mantissa_number_of_skip_bits=[3, 2, 1],
-                                                     exponent_number_of_active_bits=16,
-                                                     exponent_number_of_skip_bits=4)
+        self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-50, max_exponent=+50,
+                                                     mantissa_number_of_active_bits=[16, 16],
+                                                     mantissa_number_of_skip_bits=[2, 2],
+                                                     mantissa_number_of_gap_bits=[1, 1],
+                                                     exponent_number_of_active_bits=15,
+                                                     exponent_number_of_skip_bits=7,
+                                                     exponent_number_of_gap_bits=0)
 
         # ----------------------------------------------------------------------
         # Initialize layer 0: a single-node layer to store up to $ c_{z} $ distinct
@@ -670,9 +672,6 @@ class TestNPCLAD(unittest.TestCase):
         # Run the detector
         elapsed_time = 0
         for n in self.time_indexes:
-
-            if n == 65 or n == 55:
-                print("arow")
             value = time_series[n]
             t = time.time()
             (anomaly,
@@ -740,7 +739,7 @@ class TestNPCLAD(unittest.TestCase):
         # Time-series parameters
         time_series_amplitude = 15
         time_series_offset = 15
-        time_series_frequency = 2 * np.pi / 6
+        time_series_frequency = 2 * np.pi / 10
         time_series_phase = 0
         number_of_spikes = 3
         spike_value = 100
@@ -800,7 +799,7 @@ class TestNPCLAD(unittest.TestCase):
         # Time-series parameters
         time_series_amplitude = 15
         time_series_offset = 15
-        time_series_frequency = 2 * np.pi / 10
+        time_series_frequency = 2 * np.pi / 6
         time_series_phase = 0
         seed = 1
 
