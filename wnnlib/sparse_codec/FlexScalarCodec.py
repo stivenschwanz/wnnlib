@@ -77,9 +77,12 @@ class FlexScalarCodec:
         self.total_number_of_useful_bits = 0
 
         # Initialize the mantissa scalar codecs
-        self.mantissa_min_value = -500
-        self.mantissa_max_value = 500
-        self.mantissa_resolution = 1
+        # self.mantissa_min_value = -500
+        # self.mantissa_max_value = 500
+        # self.mantissa_resolution = 1
+        self.mantissa_min_value = -1000
+        self.mantissa_max_value = 1000
+        self.mantissa_resolution = 0.5
         self.mantissa_codecs = []
         self.mantissa_total_number_of_bits = []
         for i in range(0, self.number_of_mantissa_codecs):
@@ -129,7 +132,7 @@ class FlexScalarCodec:
         (m, e) = frexp10(input_value)
 
         # The magic happens here
-        m /= 2
+        #m /= 2
 
         # Breakdown the mantissa
         q = 0
@@ -181,7 +184,7 @@ class FlexScalarCodec:
         i = int(np.round(e))
 
         # Undoing the magic
-        m *= 2
+        #m *= 2
 
         # Combine the mantissa + exponent (base 10)
         decoded_value = ldexp10(m, i)
@@ -198,12 +201,12 @@ class TestFlexScalarCodec(unittest.TestCase):
         """
         Test case 0: load generated sparse vectors.
         """
-        scalar_codec = FlexScalarCodec(min_exponent=-50, max_exponent=+50,
-                                       mantissa_number_of_active_bits=[16, 16],
-                                       mantissa_number_of_skip_bits=[2, 2],
-                                       mantissa_number_of_gap_bits=[1, 1],
-                                       exponent_number_of_active_bits=15,
-                                       exponent_number_of_skip_bits=7,
+        scalar_codec = FlexScalarCodec(min_exponent=-59, max_exponent=+59,
+                                       mantissa_number_of_active_bits=[32],
+                                       mantissa_number_of_skip_bits=[2],
+                                       mantissa_number_of_gap_bits=[1],
+                                       exponent_number_of_active_bits=16,
+                                       exponent_number_of_skip_bits=6,
                                        exponent_number_of_gap_bits=0)
 
         input_values = 1000000 * np.random.random(size=10)

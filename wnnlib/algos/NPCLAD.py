@@ -39,9 +39,10 @@ def belief(c, p, alpha):
     # Build the sparsely encoded belief $ {\\bf b} $.
     # ----------------------------------------------------------------------
     acc = 0
-    bel = np.zeros(c, order='C', dtype=bool)
-    for i in np.arange(c):
-        acc += pc[i]
+    bel = np.zeros(c+p, order='C', dtype=bool)
+    for i in np.arange(c+p):
+        if i < c:
+            acc += pc[i]
         if acc > 0:
             bel[i % c] = True
             acc -= 1
@@ -252,12 +253,20 @@ class NPCLAD:
         # active bits.
         # TODO: initialize as a function of (total_number_of_bits=self.dz, number_of_active_bits=self.az)
         # ----------------------------------------------------------------------
-        self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-50, max_exponent=+50,
-                                                     mantissa_number_of_active_bits=[16, 16],
-                                                     mantissa_number_of_skip_bits=[2, 2],
-                                                     mantissa_number_of_gap_bits=[1, 1],
-                                                     exponent_number_of_active_bits=15,
-                                                     exponent_number_of_skip_bits=7,
+        # self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-50, max_exponent=+50,
+        #                                              mantissa_number_of_active_bits=[16, 16],
+        #                                              mantissa_number_of_skip_bits=[2, 2],
+        #                                              mantissa_number_of_gap_bits=[1, 1],
+        #                                              exponent_number_of_active_bits=15,
+        #                                              exponent_number_of_skip_bits=7,
+        #                                              exponent_number_of_gap_bits=0)
+
+        self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-59, max_exponent=+59,
+                                                     mantissa_number_of_active_bits=[32],
+                                                     mantissa_number_of_skip_bits=[2],
+                                                     mantissa_number_of_gap_bits=[1],
+                                                     exponent_number_of_active_bits=16,
+                                                     exponent_number_of_skip_bits=6,
                                                      exponent_number_of_gap_bits=0)
 
         # ----------------------------------------------------------------------
@@ -287,7 +296,7 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         # Initialize layer 1: learn the transition from the prior to the predicted state belief.
         # ----------------------------------------------------------------------
-        self.wnn_layer1 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs,
+        self.wnn_layer1 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs + self.ps,
                                                 min_mem_size=2 ** 11-1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.bz + self.ps, max_recall_dist=self.bz + self.ps,
                                                 default_outputs=self.alphas_0, type_outputs=np.float64)
@@ -295,7 +304,7 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         # Initialize layer 2: learn the observation belief given the predicted state belief.
         # ----------------------------------------------------------------------
-        self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs,
+        self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs + self.ps,
                                                 min_mem_size=2 ** 11-1, max_mem_size=2 ** 11,
                                                 min_learn_dist=self.ps, max_recall_dist=self.ps,
                                                 default_outputs=self.alphaz_0, type_outputs=np.float64)
