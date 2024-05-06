@@ -118,7 +118,7 @@ class ScalarCodec:
         input_delta = input_value - input_skip
 
         # Determine the gap bucket index
-        n_gap = int(np.floor(self.e3 * input_delta + self.e4))
+        n_gap = np.clip(int(np.floor(self.e3 * input_delta + self.e4)), 0, self.number_of_active_bits - 1)
 
         # Get the sparse vector according to the selected indexes
         seq = [(n_skip, BitUtils.low),
@@ -165,20 +165,20 @@ class TestScalarCodec(unittest.TestCase):
         Test case 0: check if decoded values are compatible with the configured resolution.
         """
 
-        resolution = 0.1
+        resolution = 0.5
 
-        self.scalar_codec = ScalarCodec(min_value=-500,
-                                        max_value=500,
+        self.scalar_codec = ScalarCodec(min_value=-1000,
+                                        max_value=1000,
                                         res_value=resolution,
                                         number_of_active_bits=16,
                                         number_of_skip_bits=2,
                                         number_of_gap_bits=1)
 
-        input_values = np.random.random_integers(low=-500, high=500, size=1000)
+        input_values = np.random.random_integers(low=-1000, high=1000, size=1000)
         for input_value in input_values:
             print('input_value=', input_value)
             sparse_vector = self.scalar_codec.encode(input_value)
-            print('sparce_vector=', sparse_vector)
+            # print('sparce_vector=', sparse_vector)
             decoded_value = self.scalar_codec.decode(sparse_vector)
             print('decoded_value=', decoded_value)
             print('decoded_value-input_value=', decoded_value-input_value)

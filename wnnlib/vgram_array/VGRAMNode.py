@@ -46,6 +46,18 @@ class VGRAMNode:
         self.default_output = default_output
         self.type_output = type_output
 
+        # Create volatile members
+        self.input_patterns = None
+        self.input_frequencies = None
+        self.output_values = None
+        self.valid_pairs = None
+        self.num_valid_pairs = None
+        self.all_indexes = None
+
+        # Debug options
+        self.fig = None
+        self.axs = None
+
         # Initialize memory
         self.input_patterns = np.zeros((max_mem_size, pattern_length), order='C', dtype=bool)
         self.input_frequencies = np.zeros(max_mem_size, order='C', dtype=int)
@@ -53,10 +65,6 @@ class VGRAMNode:
         self.valid_pairs = np.zeros(max_mem_size, order='C', dtype=bool)
         self.num_valid_pairs = int(0)
         self.all_indexes = np.array(range(0, self.max_mem_size))
-
-        # Debug options
-        self.fig = None
-        self.axs = None
 
     def __del__(self):
         """
