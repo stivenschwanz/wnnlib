@@ -5,8 +5,7 @@ import matplotlib.colors as clrs
 import unittest
 import time
 from wnnlib.vgram_array import VGRAMArray, VGRAMNode
-from wnnlib.sparse_codec import ScalarCodec
-from wnnlib.sparse_codec import FlexScalarCodec
+from wnnlib.sparse_codec import ScalarCodec, FlexScalarCodec, AdaptiveScalarCodec
 import gc
 
 
@@ -261,13 +260,17 @@ class NPCLAD:
         #                                              exponent_number_of_skip_bits=7,
         #                                              exponent_number_of_gap_bits=0)
 
-        self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-59, max_exponent=+59,
-                                                     mantissa_number_of_active_bits=[32],
-                                                     mantissa_number_of_skip_bits=[2],
-                                                     mantissa_number_of_gap_bits=[1],
-                                                     exponent_number_of_active_bits=16,
-                                                     exponent_number_of_skip_bits=6,
-                                                     exponent_number_of_gap_bits=0)
+        # self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-59, max_exponent=+59,
+        #                                              mantissa_number_of_active_bits=[32],
+        #                                              mantissa_number_of_skip_bits=[2],
+        #                                              mantissa_number_of_gap_bits=[1],
+        #                                              exponent_number_of_active_bits=16,
+        #                                              exponent_number_of_skip_bits=6,
+        #                                              exponent_number_of_gap_bits=0)
+
+        self.codec = AdaptiveScalarCodec.AdaptiveScalarCodec(number_of_active_bits=self.az,
+                                                             total_number_of_bits=self.dz,
+                                                             max_window_size=100)
 
         # ----------------------------------------------------------------------
         # Initialize layer 0: a single-node layer to store up to $ c_{z} $ distinct
