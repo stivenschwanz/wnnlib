@@ -5,7 +5,7 @@ import matplotlib.colors as clrs
 import unittest
 import time
 from wnnlib.vgram_array import VGRAMArray, VGRAMNode
-from wnnlib.sparse_codec import ScalarCodec, FlexScalarCodec, AdaptiveScalarCodec
+from wnnlib.sparse_codec import ScalarCodec, FlexScalarCodec, FixedScalarCodec, AdaptiveScalarCodec
 import gc
 
 
@@ -159,6 +159,8 @@ class NPCLAD:
         self.sub_seqs = None
         self.curr_sub_seq = None
 
+        # print('NPCLAD initialized')
+
     def __del__(self):
         """
         Delete method. The garbage collector will hopefully work here.
@@ -196,6 +198,9 @@ class NPCLAD:
         self.curr_sub_seq_idx = None
         self.sub_seqs = None
         self.curr_sub_seq = None
+
+        gc.collect()
+        #print(gc.get_stats())
 
     def encode(self, y_n_1):
         """
@@ -241,7 +246,7 @@ class NPCLAD:
 
         return y_n_1_n
 
-    def initialize(self):
+    def initialize(self, min_time_series_value=None, max_time_series_value=None, time_series_length=None):
         """
         Initialize the filter.
         """
@@ -268,9 +273,15 @@ class NPCLAD:
         #                                              exponent_number_of_skip_bits=6,
         #                                              exponent_number_of_gap_bits=0)
 
-        self.codec = AdaptiveScalarCodec.AdaptiveScalarCodec(number_of_active_bits=self.az,
-                                                             total_number_of_bits=self.dz,
-                                                             max_window_size=100)
+        if min_time_series_value is None or max_time_series_value is None:
+            self.codec = AdaptiveScalarCodec.AdaptiveScalarCodec(number_of_active_bits=self.az,
+                                                                 total_number_of_bits=self.dz,
+                                                                 max_window_size=100)
+        else:
+            self.codec = FixedScalarCodec.FixedScalarCodec(min_value=min_time_series_value,
+                                                           max_value=max_time_series_value,
+                                                           number_of_active_bits=self.az,
+                                                           total_number_of_bits=self.dz)
 
         # ----------------------------------------------------------------------
         # Initialize layer 0: a single-node layer to store up to $ c_{z} $ distinct
@@ -285,7 +296,10 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         # Initialize the previous observation.
         # ----------------------------------------------------------------------
-        self.z_n, self.k_n = self.encode(0)
+        if min_time_series_value is None or max_time_series_value is None:
+            self.z_n, self.k_n = self.encode(0)
+        else:
+            self.z_n, self.k_n = self.encode((min_time_series_value+max_time_series_value)/2)
 
         # ----------------------------------------------------------------------
         # Initialize the previous hidden state.
@@ -300,7 +314,7 @@ class NPCLAD:
         # Initialize layer 1: learn the transition from the prior to the predicted state belief.
         # ----------------------------------------------------------------------
         self.wnn_layer1 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs + self.ps,
-                                                min_mem_size=2 ** 11-1, max_mem_size=2 ** 11,
+                                                min_mem_size=2 ** 12-1, max_mem_size=2 ** 12,
                                                 min_learn_dist=self.bz + self.ps, max_recall_dist=self.bz + self.ps,
                                                 default_outputs=self.alphas_0, type_outputs=np.float64)
 
@@ -308,7 +322,7 @@ class NPCLAD:
         # Initialize layer 2: learn the observation belief given the predicted state belief.
         # ----------------------------------------------------------------------
         self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs + self.ps,
-                                                min_mem_size=2 ** 11-1, max_mem_size=2 ** 11,
+                                                min_mem_size=2 ** 12-1, max_mem_size=2 ** 12,
                                                 min_learn_dist=self.ps, max_recall_dist=self.ps,
                                                 default_outputs=self.alphaz_0, type_outputs=np.float64)
 
