@@ -83,9 +83,9 @@ class AdaptiveScalarCodec:
             return
 
         # Update sliding window
-        if len(self.sliding_window) > 0:
-            self.sliding_window.pop()
         self.sliding_window.appendleft(input_value)
+        if len(self.sliding_window) > self.max_window_size:
+            self.sliding_window.pop()
 
         # Update bounds
         self.min_value = min(self.sliding_window)
