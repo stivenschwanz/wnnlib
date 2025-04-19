@@ -5,7 +5,7 @@ import math
 from wnnlib.BitUtils import BitUtils
 from collections import deque
 
-MIN_RANGE = 1e-4
+MIN_RANGE = 1e-2
 
 
 class FixedScalarCodec:
@@ -161,6 +161,7 @@ class TestFixedScalarCodec(unittest.TestCase):
             print('sparce_vector=', sparse_vector)
             decoded_value = self.scalar_codec.decode(sparse_vector)
             print('decoded_value=', decoded_value)
+
 
 if __name__ == '__main__':
     unittest.main()
