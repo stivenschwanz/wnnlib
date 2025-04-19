@@ -9,6 +9,23 @@ from wnnlib.sparse_codec import ScalarCodec, FlexScalarCodec, FixedScalarCodec, 
 import gc
 
 
+def fib(n):
+    """
+    Build the Fibonacci series up to number n.
+
+    Parameters:
+        n (int): Maximum Fibonacci number.
+    Return:
+       (int[]): Fibonacci series up to number n.
+   """
+    result = []
+    a, b = 0, 1
+    while a < n:
+        result.append(a)
+        a, b = b, a+b
+    return result
+
+
 def belief(c, p, alpha):
     """
     Build a belief representation from the hyper-parameters $ \\boldsymbol{\\alpha} $.
@@ -158,6 +175,10 @@ class NPCLAD:
         self.curr_sub_seq_idx = None
         self.sub_seqs = None
         self.curr_sub_seq = None
+        self.n_1 = None
+        self.min_time_series_value = None
+        self.max_time_series_value = None
+        self.time_series_length = None
 
         # print('NPCLAD initialized')
 
@@ -198,6 +219,10 @@ class NPCLAD:
         self.curr_sub_seq_idx = None
         self.sub_seqs = None
         self.curr_sub_seq = None
+        self.n_1 = None
+        self.min_time_series_value = None
+        self.max_time_series_value = None
+        self.time_series_length = None
 
         gc.collect()
         #print(gc.get_stats())
@@ -252,6 +277,14 @@ class NPCLAD:
         """
 
         # ----------------------------------------------------------------------
+        # Initialize time step counter.
+        # ----------------------------------------------------------------------
+        self.n_1 = 0
+        self.min_time_series_value = min_time_series_value
+        self.max_time_series_value = max_time_series_value
+        self.time_series_length = time_series_length
+
+        # ----------------------------------------------------------------------
         # Initialize codec: a flexible scalar encoder / decoder mapping real
         # number into sparse representations with $ d_{z} $ bit and up to $ a_{z} $
         # active bits.
@@ -297,15 +330,24 @@ class NPCLAD:
         # Initialize the previous observation.
         # ----------------------------------------------------------------------
         if min_time_series_value is None or max_time_series_value is None:
-            self.z_n, self.k_n = self.encode(0)
+            y_0 = 0
         else:
-            self.z_n, self.k_n = self.encode((min_time_series_value+max_time_series_value)/2)
+            y_0 = (min_time_series_value+max_time_series_value)/2
+
+        self.z_n, self.k_n = self.encode(y_0)
 
         # ----------------------------------------------------------------------
         # Initialize the previous hidden state.
         # ----------------------------------------------------------------------
+
+        # self.attention = fib(self.sub_seq_len)
+        #self.attention = tuple(2 ** i - 1 for i in range(0, int(np.ceil(np.log2(self.sub_seq_len)))+1))
+        #self.attention = (0, 1, 2, 31, 63, 127, 253)
+        self.sliding_window = (self.k_n, )*self.sub_seq_len
+        self.curr_sub_seq = tuple(self.sliding_window[i] for i in self.attention)
+
         self.sub_seqs = {}
-        self.curr_sub_seq = (0, )*self.sub_seq_len
+        # self.curr_sub_seq = (self.k_n, )*self.sub_seq_len
         self.sub_seq_counter = 0
         self.curr_sub_seq_idx = self.sub_seq_counter
         self.sub_seqs[self.curr_sub_seq] = self.curr_sub_seq_idx
@@ -405,7 +447,10 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         # Update the current sub-sequence (shift it to the left and add the new index)
         # ----------------------------------------------------------------------
-        self.curr_sub_seq = self.curr_sub_seq[1:] + (k_n_1,)
+        self.sliding_window = (k_n_1,) + self.sliding_window[:-1]
+        self.curr_sub_seq = tuple(self.sliding_window[i] for i in self.attention)
+
+        # self.curr_sub_seq = self.curr_sub_seq[1:] + (k_n_1,)
         if self.curr_sub_seq in self.sub_seqs:
             self.curr_sub_seq_idx = self.sub_seqs[self.curr_sub_seq]
         else:
@@ -476,6 +521,9 @@ class NPCLAD:
             (float[]): Predicted dense observation vector $ \\hat{\bf y}_{n+1|n} = \\boldsymbol{\\Omega}_{y} $.
         """
 
+        # Increment the time instant
+        self.n_1 += 1
+
         # ----------------------------------------------------------------------
         # Algorithm 3: nP-CLAD
         # ----------------------------------------------------------------------
@@ -513,10 +561,29 @@ class NPCLAD:
         else:
             anomaly_n_1 = False
 
+        # if score_n_1 > self.tau:
+        #     self.sub_seq_counter += self.ps
+        #     if self.sub_seq_counter >= self.cs:
+        #         self.sub_seq_counter += 1
+        #         self.sub_seq_counter %= self.cs
+        #     self.curr_sub_seq_idx = self.sub_seq_counter
+
         # ----------------------------------------------------------------------
         # Step 5: Learn the non-parametric model.
         # ----------------------------------------------------------------------
+        # if self.n_1 < self.time_series_length/2:
         self.learn(z_n_1, k_n_1)
+        # else:
+        #     # ----------------------------------------------------------------------
+        #     # Update the previous observations
+        #     # ----------------------------------------------------------------------
+        #     self.z_n = np.copy(z_n_1)
+        #     self.k_n = k_n_1
+        #
+        #     # ----------------------------------------------------------------------
+        #     # Update the previous belief
+        #     # ----------------------------------------------------------------------
+        #     self.bs_n_n_1 = np.copy(self.bs_n_1_n)
 
         # ----------------------------------------------------------------------
         # Step 6: Decode the predicted observation as $ \\hat{\\bf y}_{n+1|n} $.
@@ -568,10 +635,10 @@ class TestNPCLAD(unittest.TestCase):
     alphaz = 2 ** -12
     test = 2
     min_overlap = 52  # Minimum overlap between the predicted observation and the encoded observation
-    delta = 2*az - 2 * min_overlap
+    delta = 2 * az - 2 * min_overlap
     tau = 0.75
     learning_rate = 2 ** 2
-    sub_seq_len = 2 ** 4
+    sub_seq_len = 2 ** 8
     detector = None
     test_statistics = None
 
@@ -663,7 +730,7 @@ class TestNPCLAD(unittest.TestCase):
         ax = plt.subplot(616)
         ax = plt.gca()
         ax.set_xlim([0, self.time_series_length])
-        ax.set_ylim([0, 10])
+        ax.set_ylim([0, 1024])
         plt.plot(predicted_observation_symbols, 'ro-', label='Predicted observation symbol')
         plt.plot(observation_symbols, 'g.-', label='Observed symbol')
         plt.plot(predicted_state_symbols, 'b.-', label='Predicted state symbol')
@@ -695,6 +762,7 @@ class TestNPCLAD(unittest.TestCase):
 
         # Initialize the detector
         self.detector.initialize()
+        # self.detector.initialize(np.min(time_series), np.max(time_series), np.size(time_series))
 
         # Run the detector
         elapsed_time = 0
@@ -851,8 +919,8 @@ class TestNPCLAD(unittest.TestCase):
 
         # Time-series parameters
         time_series_name = 'Squared time-series without anomalies'
-        time_series_amplitude = 15
-        time_series_offset = 30
+        time_series_amplitude = 40
+        time_series_offset = 40
         time_series_frequency = 0.1  # [Hz]
         time_series_phase = 0  # [rad]
         seed = 0
