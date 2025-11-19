@@ -5,8 +5,8 @@ from matplotlib.patches import Wedge, Rectangle
 from matplotlib.collections import PatchCollection
 from matplotlib import pyplot as plt
 import time
-from wnnlib.sparse_codec.SparseCodec import SparseCodec
-from wnnlib.BitUtils import BitUtils
+from wnnlib.codecs.SparseCodec import SparseCodec
+from wnnlib.utils.BitUtils import BitUtils
 
 
 class KDTree(SparseCodec):
@@ -28,6 +28,8 @@ class KDTree(SparseCodec):
             min_splitting_volume (double): Minimum splitting volume.
             min_bounds (double[]): Minimum bounds.
             max_bounds (double[]): Maximum bounds.
+            depth (int): Subtree depth. Default is 0 for the root node.
+            sparse_vectors_file (string): File containing the sparse vectors.
         """
         # Check if the maximum depth is strictly positive
         assert max_depth > 0
@@ -59,7 +61,7 @@ class KDTree(SparseCodec):
         self.split_dim = self.depth % k
 
         # Check if the sizes of all k dimensions are strictly positive
-        assert np.alltrue(self.sizes > 0)
+        assert np.all(self.sizes > 0)
 
         # Compute volume
         self.volume = np.prod(self.sizes)
@@ -148,14 +150,14 @@ class KDTree(SparseCodec):
         left_child_max_bounds = self.max_bounds.copy()
         left_child_max_bounds[self.split_dim] = split_value
         left_child_sizes = left_child_max_bounds - left_child_min_bounds
-        left_child_volume = np.product(left_child_sizes)
+        left_child_volume = np.prod(left_child_sizes)
 
         # Compute the right child bounds, size and volume
         right_child_min_bounds = self.min_bounds.copy()
         right_child_min_bounds[self.split_dim] = split_value
         right_child_max_bounds = self.max_bounds.copy()
         right_child_sizes = right_child_max_bounds - right_child_min_bounds
-        right_child_volume = np.product(right_child_sizes)
+        right_child_volume = np.prod(right_child_sizes)
 
         if self.left_child is None:
             if left_child_volume >= self.min_splitting_volume:
@@ -203,7 +205,7 @@ class KDTree(SparseCodec):
         assert k == len(self.sizes)
 
         # Check if the given point is within the tree bounds
-        assert np.alltrue(self.min_bounds <= point) and np.alltrue(point <= self.max_bounds)
+        assert np.all(self.min_bounds <= point) and np.all(point <= self.max_bounds)
 
         # Get the point value at the splitting dimension
         dim_value = point[self.split_dim]
@@ -462,7 +464,7 @@ class TestKDTree(unittest.TestCase):
         np.random.seed(0)
         cls.test_0_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
                                  min_bounds=[0, 0], max_bounds=[10, 10],
-                                 sparse_vectors_file="../../wnndata/64k_sparse_vectors_seed_0.npz")
+                                 depth=0, sparse_vectors_file="./wnndata/64k_sparse_vectors_seed_0.npz")
         cls.test_0_data = np.append(np.random.uniform(low=0, high=10, size=[256, 2]),
                                     np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=256),
                                     axis=0)
@@ -475,7 +477,7 @@ class TestKDTree(unittest.TestCase):
                                  "rms_decoding_error": [0.0, 0.0]}
         cls.test_1_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
                                  min_bounds=[0, -60], max_bounds=[20, 60],
-                                 sparse_vectors_file="../../wnndata/64k_sparse_vectors_seed_0.npz")
+                                 depth=0, sparse_vectors_file="./wnndata/64k_sparse_vectors_seed_0.npz")
         cls.test_1_data = np.append(np.random.uniform(low=[0, -60], high=[20, 60], size=[256, 2]),
                                     np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256),
                                     axis=0)
@@ -489,7 +491,7 @@ class TestKDTree(unittest.TestCase):
 
         cls.test_2_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
                                  min_bounds=[-10], max_bounds=[10],
-                                 sparse_vectors_file="../../wnndata/64k_sparse_vectors_seed_0.npz")
+                                 depth=0, sparse_vectors_file="./wnndata/64k_sparse_vectors_seed_0.npz")
         cls.test_2_data = np.random.uniform(low=-10, high=10, size=[256, 1])
         cls.test_2_statistics = {"number_of_encoding_points": 0.0,
                                  "elapsed_encoding_time": 0.0,

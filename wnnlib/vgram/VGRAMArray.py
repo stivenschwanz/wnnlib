@@ -3,7 +3,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 import unittest
 import time
-from wnnlib.vgram_array import VGRAMNode
+from wnnlib.vgram import VGRAMNode
 
 
 class VGRAMArray:
@@ -24,8 +24,8 @@ class VGRAMArray:
             max_mem_size (int): Maximum memory size.
             min_learn_dist (int): Minimum Hamming distance.
             max_recall_dist (int): Maximum Hamming distance.
-            default_outputs (type_outputs[]): Default output values
-            type_outputs (data-type): Default type is float
+            default_outputs (type_outputs[]): Default output values.
+            type_outputs (data-type): Default type is float.
         """
         # Array of nodes and associated output values
         self.nodes = None
@@ -54,7 +54,7 @@ class VGRAMArray:
             it.iternext()
 
         # Initialize array outputs
-        self.output_values = np.zeros(output_dims, order='C', dtype=float)
+        self.output_values = np.zeros(output_dims, order='C', dtype=type_outputs)
 
         # Adjust debug window dimensions if necessary
         aspect_ratio = output_dims[0]/output_dims[1]
@@ -129,9 +129,9 @@ class VGRAMArray:
         Array memory statistics.
 
         Return:
-            (float): array memory size (KB)
-            (float): array memory capacity (KB)
-            (float): array memory usage (%)
+            (float): array memory size (KB).
+            (float): array memory capacity (KB).
+            (float): array memory usage (%).
         """
         it = np.nditer(self.output_values, flags=['multi_index'], op_flags=['readwrite'])
         arr_mem_size_kilobytes = 0
@@ -186,7 +186,8 @@ class TestVGRAMArray(unittest.TestCase):
         """
         cls.array = VGRAMArray(output_dims=cls.output_dims, pattern_length=cls.pattern_length,
                                min_mem_size=cls.min_mem_size, max_mem_size=cls.max_mem_size,
-                               min_dist=cls.min_dist, max_dist=cls.max_dist)
+                               min_learn_dist=cls.min_dist, max_recall_dist=cls.max_dist,
+                               default_outputs=np.zeros(shape=cls.output_dims, order='C', dtype=int), type_outputs=int)
         cls.test_statistics = {"average_recall_time": 0.0,
                                "average_learn_time": 0.0,
                                "elapsed_recall_time": 0.0,

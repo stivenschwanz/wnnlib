@@ -2,7 +2,7 @@ from numpy import random
 from matplotlib import pyplot as plt
 import numpy as np
 from matplotlib.collections import PatchCollection
-from wnnlib.sparse_codec import KDTree
+from wnnlib.codecs import KDTree
 
 
 def test_data_encoding(tree, data):
