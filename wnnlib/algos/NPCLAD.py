@@ -4,27 +4,10 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as clrs
 import unittest
 import time
-from wnnlib.vgram_array import VGRAMArray, VGRAMNode
-from wnnlib.sparse_codec import ScalarCodec, FlexScalarCodec, FixedScalarCodec, AdaptiveScalarCodec
+from wnnlib.vgram import VGRAMArray, VGRAMNode
+from wnnlib.codecs import FixedScalarCodec, AdaptiveScalarCodec
 import gc
 from scipy import signal
-
-
-def fib(n):
-    """
-    Build the Fibonacci series up to number n.
-
-    Parameters:
-        n (int): Maximum Fibonacci number.
-    Return:
-       (int[]): Fibonacci series up to number n.
-   """
-    result = []
-    a, b = 0, 1
-    while a < n:
-        result.append(a)
-        a, b = b, a+b
-    return result
 
 
 def belief(c, p, alpha):
@@ -57,8 +40,8 @@ def belief(c, p, alpha):
     # Build the sparsely encoded belief $ {\\bf b} $.
     # ----------------------------------------------------------------------
     acc = 0
-    bel = np.zeros(c+p, order='C', dtype=bool)
-    for i in np.arange(c+p):
+    bel = np.zeros(c + p, order='C', dtype=bool)
+    for i in np.arange(c + p):
         if i < c:
             acc += pc[i]
         if acc > 0:
@@ -185,8 +168,6 @@ class NPCLAD:
         self.max_time_series_value = None
         self.time_series_length = None
 
-        # print('NPCLAD initialized')
-
     def __del__(self):
         """
         Delete method. The garbage collector will hopefully work here.
@@ -232,7 +213,7 @@ class NPCLAD:
         self.time_series_length = None
 
         gc.collect()
-        #print(gc.get_stats())
+        # print(gc.get_stats())
 
     def encode(self, y_n_1):
         """
@@ -242,7 +223,7 @@ class NPCLAD:
              y_n_1 (float[]): Observation vector at instant $ n + 1 $.
         Return:
             (bool[]): Sparsely encoded observation vector $ \\check{\\bf z}_{n+1} $ at instant $ n+1 $.
-            (int): Index of the observation symbol in $ \\boldsymbol{\\Omega}_{z} $
+            (int): Index of the observation symbol in $ \\boldsymbol{\\Omega}_{z} $.
         """
 
         # Encode the observation using the adaptive sparse encoder
@@ -258,7 +239,6 @@ class NPCLAD:
 
             # Increment the global counter for statistics purposes
             self.z_counter += 1
-            # print(self.z_counter)
 
         return z_n_1, k_n_1
 
@@ -295,24 +275,7 @@ class NPCLAD:
         # Initialize codec: a flexible scalar encoder / decoder mapping real
         # number into sparse representations with $ d_{z} $ bit and up to $ a_{z} $
         # active bits.
-        # TODO: initialize as a function of (total_number_of_bits=self.dz, number_of_active_bits=self.az)
         # ----------------------------------------------------------------------
-        # self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-50, max_exponent=+50,
-        #                                              mantissa_number_of_active_bits=[16, 16],
-        #                                              mantissa_number_of_skip_bits=[2, 2],
-        #                                              mantissa_number_of_gap_bits=[1, 1],
-        #                                              exponent_number_of_active_bits=15,
-        #                                              exponent_number_of_skip_bits=7,
-        #                                              exponent_number_of_gap_bits=0)
-
-        # self.codec = FlexScalarCodec.FlexScalarCodec(min_exponent=-59, max_exponent=+59,
-        #                                              mantissa_number_of_active_bits=[32],
-        #                                              mantissa_number_of_skip_bits=[2],
-        #                                              mantissa_number_of_gap_bits=[1],
-        #                                              exponent_number_of_active_bits=16,
-        #                                              exponent_number_of_skip_bits=6,
-        #                                              exponent_number_of_gap_bits=0)
-
         if min_time_series_value is None or max_time_series_value is None:
             self.codec = AdaptiveScalarCodec.AdaptiveScalarCodec(number_of_active_bits=self.az,
                                                                  total_number_of_bits=self.dz,
@@ -329,9 +292,8 @@ class NPCLAD:
         # apart from each other. The default output value must be zero.
         # ----------------------------------------------------------------------
         self.wnn_layer0 = VGRAMNode.VGRAMNode(pattern_length=self.dz,
-                                              min_mem_size=self.cz-1, max_mem_size=self.cz,
-                                              #min_learn_dist=self.bz, max_recall_dist=self.bz,
-                                              min_learn_dist=self.bz, max_recall_dist=self.az//4,
+                                              min_mem_size=self.cz - 1, max_mem_size=self.cz,
+                                              min_learn_dist=self.bz, max_recall_dist=self.az // 4,
                                               default_output=None, type_output=int)
 
         # ----------------------------------------------------------------------
@@ -340,23 +302,15 @@ class NPCLAD:
         if min_time_series_value is None or max_time_series_value is None:
             y_0 = 0
         else:
-            y_0 = (min_time_series_value+max_time_series_value)/2
+            y_0 = (min_time_series_value + max_time_series_value) / 2
 
         self.z_n, self.k_n = self.encode(y_0)
 
         # ----------------------------------------------------------------------
         # Initialize the previous hidden state.
         # ----------------------------------------------------------------------
-
-        # self.attention = fib(self.sub_seq_len)
-        # self.attention = tuple(2 ** i - 1 for i in range(0, int(np.ceil(np.log2(self.sub_seq_len)))+1))
-        # self.attention = (0, 1, 2, 3, 5, 7, 8, 15, 16, 31, 32, 62, 63)
-        # self.attention = tuple(i for i in range(0, 32))
-        # self.sliding_window = (self.k_n, )*self.sub_seq_len
-        # self.curr_sub_seq = tuple(self.sliding_window[i] for i in self.attention)
-        #
         self.sub_seqs = {}
-        self.curr_sub_seq = (self.k_n, )*self.sub_seq_len
+        self.curr_sub_seq = (self.k_n,) * self.sub_seq_len
         self.sub_seq_counter = 0
         self.j_n_1 = self.sub_seq_counter
         self.sub_seqs[self.curr_sub_seq] = self.j_n_1
@@ -365,18 +319,17 @@ class NPCLAD:
         # Initialize layer 1: learn the transition from the prior to the predicted state belief.
         # ----------------------------------------------------------------------
         self.wnn_layer1 = VGRAMArray.VGRAMArray(output_dims=(1, self.cs), pattern_length=self.dz + self.cs + self.ps,
-                                                min_mem_size=2 ** 12-1, max_mem_size=2 ** 12,
-                                                #min_learn_dist=self.bz + self.ps, max_recall_dist=self.bz + self.ps,
-                                                min_learn_dist=(self.bz + self.ps)//2, max_recall_dist=(self.bz + self.ps)//2,
+                                                min_mem_size=2 ** 12 - 1, max_mem_size=2 ** 12,
+                                                min_learn_dist=(self.bz + self.ps) // 2,
+                                                max_recall_dist=(self.bz + self.ps) // 2,
                                                 default_outputs=self.alphas_0, type_outputs=np.float64)
 
         # ----------------------------------------------------------------------
         # Initialize layer 2: learn the observation belief given the predicted state belief.
         # ----------------------------------------------------------------------
         self.wnn_layer2 = VGRAMArray.VGRAMArray(output_dims=(1, self.cz), pattern_length=self.cs + self.ps,
-                                                min_mem_size=2 ** 12-1, max_mem_size=2 ** 12,
-                                                #min_learn_dist=self.ps, max_recall_dist=self.ps,
-                                                min_learn_dist=self.ps//2, max_recall_dist=self.ps//2,
+                                                min_mem_size=2 ** 12 - 1, max_mem_size=2 ** 12,
+                                                min_learn_dist=self.ps // 2, max_recall_dist=self.ps // 2,
                                                 default_outputs=self.alphaz_0, type_outputs=np.float64)
 
         # ----------------------------------------------------------------------
@@ -442,7 +395,7 @@ class NPCLAD:
 
         return z_n_1_n, k_n_1_n, pz_n_1_n, j_n_1_n, ps_n_1_n
 
-    def learn(self, z_n_1, k_n_1, j_n_1, anomaly_n_1):
+    def learn(self, z_n_1, k_n_1, j_n_1):
         """
         Update the hyperparameters upon the arrival of the next encoded observation $ \\check{\\bf z}_{n+1} $.
 
@@ -460,9 +413,6 @@ class NPCLAD:
         # Retrieve the hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $
         # indexed by $ \\check{\\bf z}_{n} $ and $ {\\bf b}_{n|n-1} $.
         # ----------------------------------------------------------------------
-        #if anomaly_n_1:
-        #    alphas_n_n_1 = self.alphas_0
-        #else:
         alphas_n_n_1 = self.wnn_layer1.recall(np.concatenate((self.z_n, self.bs_n_n_1)))[0]
 
         # ----------------------------------------------------------------------
@@ -470,7 +420,6 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         alphas_n_1_n = np.copy(alphas_n_n_1)
         alphas_n_1_n[j_n_1] += self.learning_rate
-        # alphas_n_1_n[j_n_1] = min(alphas_n_1_n[j_n_1], 16)
 
         # ----------------------------------------------------------------------
         # Store the updated hyper-parameters.
@@ -487,9 +436,6 @@ class NPCLAD:
         # Retrieve the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
         # indexed by $ {\\bf b}_{n+1|n} $.
         # ----------------------------------------------------------------------
-        # if anomaly_n_1:
-        #     alphaz_n_n_1 = self.alphaz_0
-        # else:
         alphaz_n_n_1 = self.wnn_layer2.recall(self.bs_n_1_n)[0]
 
         # ----------------------------------------------------------------------
@@ -503,9 +449,6 @@ class NPCLAD:
         # Store the updated hyper-parameters.
         # ----------------------------------------------------------------------
         self.wnn_layer2.learn(self.bs_n_1_n, alphaz_n_1_n)
-
-        #if k_n_1 != self.k_n:
-        #    print(k_n_1)
 
         # ----------------------------------------------------------------------
         # Update the previous observations
@@ -560,29 +503,19 @@ class NPCLAD:
         # Step 4: Detect the anomaly and compute the corresponding score.
         # ----------------------------------------------------------------------
         if z_n_1_n is not None:
-            if self.test == 1:
-                # Perform test 1: check if the predicted observation mismatches the encoded observation
-                anomaly_n_1 = np.count_nonzero(z_n_1_n != z_n_1) > self.delta
-            elif self.test == 2:
-                # Perform test 2: check if the encoded observation (index) mismatches all predicted hypothesis
-                anomaly_n_1 = score_n_1 > self.tau
-            else:
-                raise Exception("Invalid AD test type.")
+            # Check if the encoded observation (index) mismatches all predicted hypothesis
+            anomaly_n_1 = score_n_1 > self.tau
         else:
             anomaly_n_1 = False
 
         # ----------------------------------------------------------------------
         # Update the current sub-sequence (shift it to the left and add the new index)
         # ----------------------------------------------------------------------
-        # self.sliding_window = (k_n_1,) + self.sliding_window[:-1]
-        # self.curr_sub_seq = tuple(self.sliding_window[i] for i in self.attention)
-
         self.curr_sub_seq = (k_n_1,) + self.curr_sub_seq[:-1]
         if self.curr_sub_seq in self.sub_seqs:
             self.j_n_1 = self.sub_seqs[self.curr_sub_seq]
         else:
             self.sub_seq_counter += self.ps
-            # self.sub_seq_counter += self.ps//2
             if self.sub_seq_counter >= self.cs:
                 self.sub_seq_counter += 1
                 self.sub_seq_counter %= self.cs
@@ -592,15 +525,7 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         # Step 5: Learn the non-parametric model.
         # ----------------------------------------------------------------------
-        # if anomaly_n_1:
-        #     # self.j_n_1 = j_n_1_n
-        #     # self.j_n_1 %= self.cs
-        #     self.learn(z_n_1, k_n_1, self.j_n_1)
-        # else:
-        #     self.learn(z_n_1, k_n_1, j_n_1_n)
-
-        self.learn(z_n_1, k_n_1, self.j_n_1, anomaly_n_1)
-        # j_n_1_n = self.j_n_1
+        self.learn(z_n_1, k_n_1, self.j_n_1)
 
         # ----------------------------------------------------------------------
         # Step 6: Decode the predicted observation as $ \\hat{\\bf y}_{n+1|n} $.
@@ -614,9 +539,9 @@ class NPCLAD:
         Network memory size.
 
         Return:
-            (float): layer 0 memory size (MB)
-            (float): layer 1 memory size (MB)
-            (float): layer 2 memory size (MB)
+            (float): layer 0 memory size (MB).
+            (float): layer 1 memory size (MB).
+            (float): layer 2 memory size (MB).
         """
         layer0_mem_size_kilobytes, _, _ = self.wnn_layer0.memory_stats()
         layer0_mem_size_megabytes = layer0_mem_size_kilobytes / 1024
@@ -628,11 +553,11 @@ class NPCLAD:
         """
         Debug network.
         """
-        #self.wnn_layer0.debug()
-        #self.wnn_layer1.debug()
-        #self.wnn_layer2.debug()
-        #gc.collect()
-        #print(gc.get_stats())
+        # self.wnn_layer0.debug()
+        # self.wnn_layer1.debug()
+        # self.wnn_layer2.debug()
+        # gc.collect()
+        # print(gc.get_stats())
 
 
 class TestNPCLAD(unittest.TestCase):
@@ -641,49 +566,34 @@ class TestNPCLAD(unittest.TestCase):
     """
 
     # Model parameters
-    if True:
-        cs = 2 ** 10
-        ps = 2 ** 3
-        alphas = 2 ** -12
-        az = 64
-        bz = 2 ** 2
-        cz = 2 ** 10
-        dz = 2 ** 10
-        pz = 2 ** 3
-        alphaz = 2 ** -12
-        test = 2
-        min_overlap = 52  # Minimum overlap between the predicted observation and the encoded observation
-        delta = 2 * az - 2 * min_overlap
-        tau = 0.75
-        learning_rate = 2 ** 1
-        sub_seq_len = 2 ** 3
-    else:
-        cs = 2 ** 10
-        ps = 2 ** 3
-        alphas = 2 ** -12
-        az = 64
-        bz = 2 ** 0
-        cz = 2 ** 10
-        dz = 2 ** 9
-        pz = 2 ** 3
-        alphaz = 2 ** -12
-        test = 2
-        min_overlap = 52  # Minimum overlap between the predicted observation and the encoded observation
-        delta = 2 * az - 2 * min_overlap
-        tau = 0.75
-        learning_rate = 2 ** 1
-        sub_seq_len = 2 ** 3
+    cs = 2 ** 10
+    ps = 2 ** 3
+    alphas = 2 ** -12
+    az = 64
+    bz = 2 ** 2
+    cz = 2 ** 10
+    dz = 2 ** 10
+    pz = 2 ** 3
+    alphaz = 2 ** -12
+    test = 2
+    min_overlap = 52  # Minimum overlap between the predicted observation and the encoded observation
+    delta = 2 * az - 2 * min_overlap
+    tau = 0.75
+    learning_rate = 2 ** 1
+    sub_seq_len = 2 ** 3
 
     detector = None
     test_statistics = None
+    plot_pretty_graphs = True
+    plot_statistics = False
 
     # Time-series parameters
     time_series_length = 1001
     time_indexes = range(0, time_series_length)
     anomaly_indexes = range(time_series_length // 2, time_series_length)
     sampling_frequency = 10  # [Hz]
-    sampling_period = 1/sampling_frequency  # [secs]
-    time_instants = np.array(time_indexes, order='C', dtype=float)*sampling_period  # [secs]
+    sampling_period = 1 / sampling_frequency  # [secs]
+    time_instants = np.array(time_indexes, order='C', dtype=float) * sampling_period  # [secs]
 
     def setUp(self):
         """
@@ -700,7 +610,8 @@ class TestNPCLAD(unittest.TestCase):
         Tear down method: print test statistics.
         """
         print('Elapsed time to detect {0} patterns: {1:.2e} seconds'.format(self.time_series_length,
-                                                                            self.test_statistics["elapsed_detect_time"]))
+                                                                            self.test_statistics[
+                                                                                "elapsed_detect_time"]))
         print('Average learn time: {:.1} milliseconds'.format(self.test_statistics["average_detect_time"]))
 
         time_series_name = self.test_statistics["time_series_name"]
@@ -716,7 +627,7 @@ class TestNPCLAD(unittest.TestCase):
         layer1_memory_stats = self.test_statistics["layer1_memory_stats"]
         layer2_memory_stats = self.test_statistics["layer2_memory_stats"]
 
-        if True:
+        if self.plot_pretty_graphs:
             fig = plt.figure(figsize=(16, 5))
             gs = fig.add_gridspec(2, hspace=0, height_ratios=[0.65, 0.35])
             axs = gs.subplots(sharex=True, sharey=False)
@@ -725,13 +636,21 @@ class TestNPCLAD(unittest.TestCase):
             axs[0].grid(True)
             axs[0].set_xlim(0, 1000)
             axs[0].set_ylim(0, 100)
-            axs[0].axvspan(0,  self.time_series_length / 2, color='gray', alpha=0.1)
-            axs[0].axvspan(self.time_series_length / 2,  self.time_series_length, color='green', alpha=0.1)
+            axs[0].axvspan(0, self.time_series_length / 2,
+                           color='gray', alpha=0.1, label='Learning-only: $500$ points without anomalies')
+            axs[0].axvspan(self.time_series_length / 2, self.time_series_length,
+                           color='green', alpha=0.1, label='Evaluation: $500$ points with abnormal spikes')
             anomaly_time_indexes = np.array(self.time_indexes)[ground_truth]
+            flag_add_label = True
             for anomaly_time_index in anomaly_time_indexes:
-                axs[0].axvspan(anomaly_time_index-10, anomaly_time_index+10, color='red', alpha=0.25)
+                if flag_add_label:
+                    axs[0].axvspan(anomaly_time_index - 10, anomaly_time_index + 10,
+                                   color='red', alpha=0.25, label=r'True anomalies: $20$-point centered windows')
+                    flag_add_label = False
+                else:
+                    axs[0].axvspan(anomaly_time_index - 10, anomaly_time_index + 10, color='red', alpha=0.25)
             axs[0].plot(time_series, 'k-', markersize=7, label='Time series', zorder=1)
-            axs[0].legend(bbox_to_anchor=(0.2, 0.95), loc='upper left', borderaxespad=0.,fontsize=16)
+            axs[0].legend(bbox_to_anchor=(0.1, 0.95), loc='upper left', borderaxespad=0., fontsize=16)
 
             axs[1].set_frame_on(False)
             axs[1].grid(True)
@@ -741,26 +660,29 @@ class TestNPCLAD(unittest.TestCase):
             axs[1].axvspan(self.time_series_length / 2, self.time_series_length, color='green', alpha=0.1)
             axs[1].plot(scores, 'b-', label='Anomaly scores', zorder=1)
             for anomaly_time_index in anomaly_time_indexes:
-                axs[1].axvspan(anomaly_time_index-10, anomaly_time_index+10, color='red', alpha=0.25)
+                axs[1].axvspan(anomaly_time_index - 10, anomaly_time_index + 10, color='red', alpha=0.25)
             anomaly_time_indexes = np.array(self.time_indexes)[anomalies]
-            axs[1].scatter(x=anomaly_time_indexes, y=scores[anomaly_time_indexes], s=75, edgecolors='red', facecolor="red",
-                        marker='o', label='Detected anomalies', zorder=2)
+            axs[1].scatter(x=anomaly_time_indexes, y=scores[anomaly_time_indexes], s=75, edgecolors='red',
+                           facecolor="red", marker='o', label='Detected anomalies', zorder=2)
 
             axs[1].set_xlabel(r'Time index $n$', fontsize=22)
             axs[0].set_ylabel(r'Observation $y\check_{n}$', color='k', fontsize=22)
             axs[1].set_ylabel(r'Score $\Sigma^{ad}_{n}$', color='b', fontsize=22)
-            axs[1].legend(bbox_to_anchor=(0.2, 0.95), loc='upper left', borderaxespad=0., fontsize=16)
+            axs[1].legend(bbox_to_anchor=(0.1, 0.95), loc='upper left', borderaxespad=0., fontsize=16)
 
             plt.tight_layout()
             plt.show(block=True)
-        else:
+
+        if self.plot_statistics:
             plt.subplots(constrained_layout=True)
             plt.axis('off')
             ax = plt.subplot(611)
             plt.plot(time_series, 'bo--', label='Time-series')
             plt.plot(predictions, 'm.--', label='Predictions')
             ax.add_patch(plt.Rectangle((0, 0), self.time_series_length / 2, 100, facecolor="red", alpha=0.1))
-            ax.add_patch(plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 100, facecolor="green", alpha=0.1))
+            ax.add_patch(
+                plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 100, facecolor="green",
+                              alpha=0.1))
             plt.xticks(np.arange(0, self.time_series_length, step=self.time_series_length / 20))
             plt.grid(axis='x', color='0.95')
             plt.title(time_series_name)
@@ -770,7 +692,9 @@ class TestNPCLAD(unittest.TestCase):
             cmap = clrs.ListedColormap(['green', 'red'])
             plt.scatter(x=self.time_indexes, y=ground_truth, c=ground_truth.astype(float), marker='d', cmap=cmap)
             ax.add_patch(plt.Rectangle((0, 0), self.time_series_length / 2, 1, facecolor="red", alpha=0.1))
-            ax.add_patch(plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 1, facecolor="green", alpha=0.1))
+            ax.add_patch(
+                plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 1, facecolor="green",
+                              alpha=0.1))
             plt.xticks(np.arange(0, self.time_series_length, step=self.time_series_length / 20))
             plt.grid(axis='x', color='0.95')
             plt.title('Ground-truth')
@@ -779,14 +703,18 @@ class TestNPCLAD(unittest.TestCase):
             cmap = clrs.ListedColormap(['green', 'red'])
             plt.scatter(x=self.time_indexes, y=anomalies, c=anomalies.astype(float), marker='d', cmap=cmap)
             ax.add_patch(plt.Rectangle((0, 0), self.time_series_length / 2, 1, facecolor="red", alpha=0.1))
-            ax.add_patch(plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 1, facecolor="green", alpha=0.1))
+            ax.add_patch(
+                plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 1, facecolor="green",
+                              alpha=0.1))
             plt.xticks(np.arange(0, self.time_series_length, step=self.time_series_length / 20))
             plt.grid(axis='x', color='0.95')
             plt.title('Anomaly indicator')
             ax = plt.subplot(614)
             plt.plot(100 * scores, 'b-')
             ax.add_patch(plt.Rectangle((0, 0), self.time_series_length / 2, 100, facecolor="red", alpha=0.1))
-            ax.add_patch(plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 100, facecolor="green", alpha=0.1))
+            ax.add_patch(
+                plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 100, facecolor="green",
+                              alpha=0.1))
             plt.xticks(np.arange(0, self.time_series_length, step=self.time_series_length / 20))
             plt.grid(axis='x', color='0.95')
             plt.title('Anomaly score (%)')
@@ -795,21 +723,24 @@ class TestNPCLAD(unittest.TestCase):
             plt.plot(layer1_memory_stats, 'g-', label='Layer 1')
             plt.plot(layer2_memory_stats, 'b-', label='Layer 2')
             ax.add_patch(plt.Rectangle((0, 0), self.time_series_length / 2, 100, facecolor="red", alpha=0.1))
-            ax.add_patch(plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 100, facecolor="green", alpha=0.1))
+            ax.add_patch(
+                plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 100, facecolor="green",
+                              alpha=0.1))
             plt.xticks(np.arange(0, self.time_series_length, step=self.time_series_length / 20))
             plt.grid(axis='x', color='0.95')
             plt.title('Memory usage (KB)')
             plt.legend(loc="upper left")
             ax = plt.subplot(616)
-            ax = plt.gca()
+            # ax = plt.gca()
             ax.set_xlim([0, self.time_series_length])
             ax.set_ylim([0, 1024])
             plt.plot(predicted_observation_symbols, 'ro-', label='Predicted observation symbol')
             plt.plot(observation_symbols, 'g.-', label='Observed symbol')
             plt.plot(predicted_state_symbols, 'b.-', label='Predicted state symbol')
             ax.add_patch(plt.Rectangle((0, 0), self.time_series_length / 2, 2048, facecolor="red", alpha=0.1))
-            ax.add_patch(plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 2048, facecolor="green",
-                                       alpha=0.1))
+            ax.add_patch(
+                plt.Rectangle((self.time_series_length / 2, 0), self.time_series_length / 2, 2048, facecolor="green",
+                              alpha=0.1))
             plt.xticks(np.arange(0, self.time_series_length, step=self.time_series_length / 20))
             plt.grid(axis='x', color='0.95')
             plt.title('Predicted symbols')
@@ -834,7 +765,6 @@ class TestNPCLAD(unittest.TestCase):
         layer2_memory_stats = np.zeros(self.time_series_length, order='C', dtype=float)
 
         # Initialize the detector
-        # self.detector.initialize()
         self.detector.initialize(np.min(time_series), np.max(time_series), np.size(time_series))
 
         # Run the detector
@@ -1010,9 +940,9 @@ class TestNPCLAD(unittest.TestCase):
         # Run the test
         self.runTest(time_series, ground_truth, time_series_name)
 
-    def test_5_nsy_time_series_with_spike_anomalies(self):
+    def test_5_saw_time_series_with_spike_anomalies(self):
         """
-        Test case 1: Sinusoidal time-series with noisy and abnormal spikes.
+        Test case 5: Sawtooth time-series with abnormal spikes.
         """
 
         # Time-series parameters
@@ -1031,37 +961,8 @@ class TestNPCLAD(unittest.TestCase):
         # Build the time-series
         spike_locations = np.unique(np.random.choice(self.anomaly_indexes, number_of_spikes, replace=True))
         time_series = time_series_offset + time_series_amplitude * \
-                      np.sin(2 * np.pi * time_series_frequency * self.time_instants + time_series_phase) + \
-                      time_series_noise_std_dev * np.random.randn(self.time_series_length)
-        time_series[spike_locations] = spike_value
-
-        # Build the ground_truth
-        ground_truth = np.zeros(self.time_series_length, order='C', dtype=bool)
-        ground_truth[spike_locations] = True
-
-        # Run the test
-        self.runTest(time_series, ground_truth, time_series_name)
-
-    def test_6_saw_time_series_with_spike_anomalies(self):
-        """
-        Test case 1: Sawtooth time-series with abnormal spikes.
-        """
-
-        # Time-series parameters
-        time_series_name = 'Sinusoidal time-series with random spikes'
-        time_series_amplitude = 15
-        time_series_offset = 15
-        time_series_frequency = 0.5  # [Hz]
-        time_series_phase = 0  # [rad]
-        time_series_noise_std_dev = 1
-        number_of_spikes = 3
-        spike_value = 100
-        seed = 3
-
-        # Build the time-series
-        spike_locations = np.unique(np.random.choice(self.anomaly_indexes, number_of_spikes, replace=True))
-        time_series = time_series_offset + time_series_amplitude * \
-                      signal.sawtooth(2 * np.pi * time_series_frequency * self.time_instants + time_series_phase, width=0.5)
+                      signal.sawtooth(2 * np.pi * time_series_frequency * self.time_instants + time_series_phase,
+                                      width=0.5)
         time_series[spike_locations] = spike_value
 
         # Build the ground_truth
