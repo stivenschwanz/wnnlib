@@ -1,4 +1,4 @@
-import wnnlib.sparse_codec
-import wnnlib.vgram_array
+import wnnlib.codecs
+import wnnlib.vgram
 import wnnlib.algos
 import wnnlib.utils

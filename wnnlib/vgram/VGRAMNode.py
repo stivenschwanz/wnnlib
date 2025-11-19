@@ -24,7 +24,7 @@ class VGRAMNode:
             max_mem_size (int): Maximum memory size.
             min_learn_dist (int): Minimum Hamming distance.
             max_recall_dist (int): Maximum Hamming distance.
-            default_output (type_output): Default output value
+            default_output (type_output): Default output value.
             type_output (data-type): Default is float.
         """
         # Check pattern length
@@ -182,8 +182,8 @@ class VGRAMNode:
 
         Returns:
             (data type): Output value associated with the closest pattern.
-            (int): Distance to the closest pattern
-            (int): Index of the closest pattern
+            (int): Distance to the closest pattern.
+            (int): Index of the closest pattern.
         """
         # Set default outputs
         outputs = (self.default_output, None, None)
@@ -212,7 +212,7 @@ class VGRAMNode:
             output_value (data type): Output value.
 
         Return:
-            (int): Index of the updated input-output pair
+            (int): Index of the updated input-output pair.
         """
         # Skip learning the default output
         if self.default_output is not None and self.default_output >= output_value:
@@ -266,9 +266,9 @@ class VGRAMNode:
         Node memory statistics.
 
         Return:
-            (float): node memory size (KB)
-            (float): node memory capacity (KB)
-            (float): node memory usage (%)
+            (float): node memory size (KB).
+            (float): node memory capacity (KB).
+            (float): node memory usage (%).
         """
         pair_mem_size_bytes = float(self.pattern_length + 4)
         node_mem_size_kilobytes = self.num_valid_pairs * pair_mem_size_bytes / 1024

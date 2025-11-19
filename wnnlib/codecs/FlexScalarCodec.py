@@ -2,8 +2,7 @@ import unittest
 from numpy import random
 import numpy as np
 import math
-from wnnlib.BitUtils import BitUtils
-from wnnlib.sparse_codec import ScalarCodec
+from wnnlib.codecs import ScalarCodec
 
 
 def frexp10(x):

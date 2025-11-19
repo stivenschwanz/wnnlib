@@ -1,5 +1,5 @@
-from wnnlib.vgram_array import VGRAMArray
-from wnnlib.vgram_array import globals
+from wnnlib.vgram import VGRAMArray
+from wnnlib.vgram import globals
 
 
 def create(array_id, output_dims, pattern_length, min_mem_size, max_mem_size, min_dist, max_dist):

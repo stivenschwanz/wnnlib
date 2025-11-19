@@ -1,5 +1,5 @@
-from wnnlib.sparse_codec import KDTree
-from wnnlib.sparse_codec import globals
+from wnnlib.codecs import KDTree
+from wnnlib.codecs import globals
 
 
 def create(codec_id, max_depth, learning_rate, min_splitting_volume, min_bounds, max_bounds, sparse_vectors_file):

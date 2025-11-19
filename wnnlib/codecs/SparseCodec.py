@@ -1,11 +1,11 @@
 import unittest
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 from numpy import random
 import numpy as np
-from wnnlib.BitUtils import BitUtils
+from wnnlib.utils.BitUtils import BitUtils
 
 
-class SparseCodec(ABCMeta):
+class SparseCodec(ABC):
     """
     This abstract class defines a sparse encoder/decoder (codec).
 
@@ -348,13 +348,13 @@ class TestSparseCodec(unittest.TestCase):
                                             sparse_vectors_length=2048,
                                             maximum_number_of_activated_bits=64,
                                             minimum_hamming_distance_between_vectors=96,
-                                            output_file_name="../../wnndata/16k_sparse_vectors_seed_0.npz")
+                                            output_file_name="./wnndata/16k_sparse_vectors_seed_0.npz")
 
     def test_1_codec(self):
         """
         Test case 1: load generated sparse vectors.
         """
-        sparse_codec = TestSparseCodec.DummySparseCodec(sparse_vectors_file="../../wnndata/2k_sparse_vectors_seed_0.npz")
+        sparse_codec = TestSparseCodec.DummySparseCodec(sparse_vectors_file="./wnndata/2k_sparse_vectors_seed_0.npz")
 
         dense_vector_length = 10
         dense_vector = np.random.random(size=dense_vector_length)

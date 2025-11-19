@@ -1,22 +1,23 @@
 import unittest
 from numpy import random
 import numpy as np
-import math
-from wnnlib.BitUtils import BitUtils
+from wnnlib.utils.BitUtils import BitUtils
 from collections import deque
 
-MIN_RANGE = 1e-2
+MIN_RANGE = 1e-4
 
 
-class FixedScalarCodec:
+class AdaptiveScalarCodec:
     """
     An adaptive scalar encoder/decoder (codec) using a sliding window to determine the minimum and maximum values for
     the scalar codec.
 
     """
-    def __init__(self, min_value, max_value,
-                 number_of_active_bits=32,
-                 total_number_of_bits=1024):
+    def __init__(self, number_of_active_bits=32,
+                 total_number_of_bits=1024,
+                 max_window_size=100,
+                 min_value=None,
+                 max_value=None):
         """
         Initialize the sparse codec.
 
@@ -28,19 +29,18 @@ class FixedScalarCodec:
         # Check parameters
         # ----------------------------------------------------------------------
 
-        # Check the minimum against the maximum allowed values
-        assert min_value <= max_value
-
         # Check the total number of bits against the number of activated bits
         assert total_number_of_bits > number_of_active_bits > 0
+
+        # Check the window size
+        assert max_window_size >= 2
 
         # ----------------------------------------------------------------------
         # Store input parameters
         # ----------------------------------------------------------------------
-        self.min_value = min_value
-        self.max_value = max_value
         self.number_of_active_bits = number_of_active_bits
         self.total_number_of_bits = total_number_of_bits
+        self.max_window_size = max_window_size
 
         # ----------------------------------------------------------------------
         # Initialize the class members
@@ -49,11 +49,53 @@ class FixedScalarCodec:
         # Compute the number of buckets
         self.number_of_buckets = self.total_number_of_bits - self.number_of_active_bits + 1
 
+        # Invalidate codec bounds
+        self.min_value = min_value
+        self.max_value = max_value
+        if min_value is not None and max_value is not None:
+            self.range_value = max_value - min_value
+        else:
+            self.range_value = None
+
+        # Invalidate codec constants
+        self.e1 = None
+        self.e2 = None
+        self.d1 = None
+        self.d2 = None
+
+        # ----------------------------------------------------------------------
+        # Initialize an empty sliding window to store the last input samples
+        # ----------------------------------------------------------------------
+        self.sliding_window = deque([], self.max_window_size)
+
+        # ----------------------------------------------------------------------
+        # Initialize an empty dictionary to store known bounds
+        # ----------------------------------------------------------------------
+        self.bounds_map = {}
+
+    def update_bounds(self, input_value):
+        # Sanity check
+        if self.min_value is not None and \
+                self.max_value is not None and \
+                self.min_value <= input_value <= self.max_value:
+            # NOP: the input value is inside the current codec bounds
+            return
+
+        # Update sliding window
+        self.sliding_window.appendleft(input_value)
+        if len(self.sliding_window) > self.max_window_size:
+            self.sliding_window.pop()
+
+        # Update bounds
+        self.min_value = min(self.sliding_window)
+        self.max_value = max(self.sliding_window)
+
         # Sanity check
         if self.max_value - self.min_value < MIN_RANGE:
             self.max_value = self.min_value + MIN_RANGE
 
-        # Compute the codec range
+    def update_codec_constants(self):
+        # Update the codec range
         self.range_value = self.max_value - self.min_value
 
         # Compute encoding constants
@@ -63,6 +105,13 @@ class FixedScalarCodec:
         # Compute decoding constants
         self.d1 = +1.0 / self.e1
         self.d2 = -self.e2 / self.e1
+
+    def adapt_codec(self, input_value):
+        # Update bounds first
+        self.update_bounds(input_value)
+
+        # Then, update codec constants
+        self.update_codec_constants()
 
     def encode(self, input_value):
         """
@@ -74,6 +123,9 @@ class FixedScalarCodec:
         Returns:
             (bool[]): High-dimensional vector containing a sparse binary representation of the given dense vector.
         """
+
+        # Update codec
+        self.adapt_codec(input_value)
 
         # Determine the initial bucket index
         n_init = self.e1 * input_value + self.e2
@@ -112,9 +164,9 @@ class FixedScalarCodec:
         return decoded_value
 
 
-class TestFixedScalarCodec(unittest.TestCase):
+class TestAdaptiveScalarCodec(unittest.TestCase):
     """
-    Extends unittest.TestCase class to implement unit tests for the FixedScalarCodec class.
+    Extends unittest.TestCase class to implement unit tests for the AdaptiveScalarCodec class.
     """
 
     @classmethod
@@ -122,7 +174,9 @@ class TestFixedScalarCodec(unittest.TestCase):
         """
         Set up method:
         """
-        cls.scalar_codec = FixedScalarCodec(0, 100, number_of_active_bits=48, total_number_of_bits=2048)
+        cls.scalar_codec = AdaptiveScalarCodec(number_of_active_bits=48,
+                                               total_number_of_bits=2048,
+                                               max_window_size=10)
 
     @classmethod
     def tearDownClass(cls):
@@ -161,7 +215,6 @@ class TestFixedScalarCodec(unittest.TestCase):
             print('sparce_vector=', sparse_vector)
             decoded_value = self.scalar_codec.decode(sparse_vector)
             print('decoded_value=', decoded_value)
-
 
 if __name__ == '__main__':
     unittest.main()

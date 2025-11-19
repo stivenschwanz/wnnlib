@@ -1,7 +1,7 @@
 import unittest
 from numpy import random
 import numpy as np
-from wnnlib.BitUtils import BitUtils
+from wnnlib.utils.BitUtils import BitUtils
 
 
 class ScalarCodec:
