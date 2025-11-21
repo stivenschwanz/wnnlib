@@ -6,7 +6,7 @@ import unittest
 import time
 from wnnlib.vgram import VGRAMArray, VGRAMNode
 from wnnlib.codecs import FixedScalarCodec, AdaptiveScalarCodec
-from wnnlib.utils import BitUtils
+from wnnlib.utils.BitUtils import BitUtils
 import gc
 from scipy import signal
 
@@ -612,6 +612,7 @@ class TestNPCLAD(unittest.TestCase):
                     axs[0].axvspan(anomaly_time_index - 10, anomaly_time_index + 10, color='red', alpha=0.25)
             axs[0].plot(time_series, 'k-', markersize=7, label='Time series', zorder=1)
             axs[0].legend(bbox_to_anchor=(0.1, 0.95), loc='upper left', borderaxespad=0., fontsize=16)
+            axs[0].tick_params(axis='both', which='major', labelsize=14)
 
             axs[1].set_frame_on(False)
             axs[1].grid(True)
@@ -630,6 +631,7 @@ class TestNPCLAD(unittest.TestCase):
             axs[0].set_ylabel(r'Observation $y\check_{n}$', color='k', fontsize=22)
             axs[1].set_ylabel(r'Score $\Sigma^{ad}_{n}$', color='b', fontsize=22)
             axs[1].legend(bbox_to_anchor=(0.1, 0.95), loc='upper left', borderaxespad=0., fontsize=16)
+            axs[1].tick_params(axis='both', which='major', labelsize=14)
 
             plt.tight_layout()
             plt.show(block=True)

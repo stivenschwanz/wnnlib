@@ -2,7 +2,7 @@ import unittest
 import numpy as np
 import time
 import matplotlib.pyplot as plt
-import matplotlib.colors as clrs
+
 
 class BitUtils:
 
@@ -228,7 +228,7 @@ class TestBitUtils(unittest.TestCase):
         # Recover the posterior
         rec_pi = BitUtils.unbelief(c, p, bel)
 
-        fig = plt.figure(figsize=(16, 5/0.75))
+        fig = plt.figure(figsize=(16, 6/0.75))
         gs = fig.add_gridspec(4, hspace=0.5, height_ratios=[0.4, 0.25, 0.1, 0.25])
         axs = gs.subplots(sharex=True, sharey=False)
 
@@ -242,6 +242,7 @@ class TestBitUtils(unittest.TestCase):
         axs[0].bar(np.arange(1, c+1, step=1), np.max(alpha)*np.ones(c, order='C', dtype=int), width=1, edgecolor='0.75', color='1.0')
         axs[0].bar(np.arange(1, c+1, step=1), alpha, width=1)
         axs[0].set_yticks(np.arange(0, np.max(alpha)+0.1, step=1))
+        axs[0].tick_params(axis='both', which='major', labelsize=16)
         axs[0].set_title(r'{\bf Step 1}: Pseudo-counts $\boldsymbol{\alpha}_{n|n-1} \equiv \boldsymbol{\alpha}_{n|n-1}(\check{\bf z}_{n}, {\bf b}_{n|n-1})$', fontsize=fontsize, usetex=True)
 
         axs[1].set_frame_on(True)
@@ -251,6 +252,7 @@ class TestBitUtils(unittest.TestCase):
         axs[1].bar(np.arange(1, c+1, step=1), np.ones(c, order='C', dtype=int), width=1, edgecolor='0.75', color='1.0')
         axs[1].bar(np.arange(1, c+1, step=1), pi, width=1, edgecolor='0.75', facecolor='red')
         axs[1].set_yticks(np.arange(0, 1.1, step=0.5))
+        axs[1].tick_params(axis='both', which='major', labelsize=16)
         axs[1].set_title(r'{\bf Step 2}: Sampled posterior $\boldsymbol{\pi}_{n+1|n} \sim Dir(c_{s}; \boldsymbol{\alpha}_{n|n-1}) $', fontsize=fontsize, usetex=True)
 
         axs[2].set_frame_on(True)
@@ -275,6 +277,7 @@ class TestBitUtils(unittest.TestCase):
         axs[3].set_xticks([1, l1+1, l2+1, l3+1, c, c+p, c+p+0.5],
                           ['1', r'$\ell_{1}^{\prime}=$'+str(l1), r'$\ell_{2}^{\prime}=$'+str(l2),
                            r'$\ell_{3}^{\prime}=$'+str(l3), r'$c_{s}$', r'$c_{s}+p_{s}$', ''])
+        axs[3].tick_params(axis='both', which='major', labelsize=16)
 
         plt.show(block=True)
 
@@ -313,7 +316,7 @@ class TestBitUtils(unittest.TestCase):
         omega_z = np.zeros(c, order='C', dtype=int)
         omega_z[k_hat] = 1
 
-        fig = plt.figure(figsize=(16, 5))
+        fig = plt.figure(figsize=(16, 6))
         gs = fig.add_gridspec(3, hspace=0.5, height_ratios=[0.4, 0.25, 0.1])
         axs = gs.subplots(sharex=True, sharey=False)
 
@@ -327,6 +330,7 @@ class TestBitUtils(unittest.TestCase):
         axs[0].bar(np.arange(1, c+1, step=1), np.max(alpha)*np.ones(c, order='C', dtype=int), width=1, edgecolor='0.75', color='1.0')
         axs[0].bar(np.arange(1, c+1, step=1), alpha, width=1)
         axs[0].set_yticks(np.arange(0, np.max(alpha)+0.1, step=1))
+        axs[0].tick_params(axis='both', which='major', labelsize=16)
         axs[0].set_title(r'{\bf Step 4}: Pseudo-counts $\tilde{\boldsymbol{\alpha}}_{n|n-1} \equiv \tilde{\boldsymbol{\alpha}}_{n|n-1}({\bf b}_{n+1|n})$', fontsize=fontsize, usetex=True)
 
         axs[1].set_frame_on(True)
@@ -336,6 +340,7 @@ class TestBitUtils(unittest.TestCase):
         axs[1].bar(np.arange(1, c+1, step=1), np.ones(c, order='C', dtype=int), width=1, edgecolor='0.75', color='1.0')
         axs[1].bar(np.arange(1, c+1, step=1), pi, width=1, edgecolor='0.75', facecolor='red')
         axs[1].set_yticks(np.arange(0, 1.1, step=0.5))
+        axs[1].tick_params(axis='both', which='major', labelsize=16)
         axs[1].set_title(r'{\bf Step 5}: Sampled posterior $\tilde{\boldsymbol{\pi}}_{n+1|n} \sim Dir(c_{z}; \tilde{\boldsymbol{\alpha}}_{n|n-1}) $', fontsize=fontsize, usetex=True)
 
         axs[2].set_frame_on(True)
@@ -349,6 +354,7 @@ class TestBitUtils(unittest.TestCase):
         axs[2].set_xticks([1, l1 + 1, l2 + 1, l3 + 1, c, c + 0.5],
                           ['1', r'$\ell_{1}=$' + str(l1), r'$\ell_{2}=$' + str(l2),
                            r'$\ell_{3}=$' + str(l3), r'$c_{z}$', ''])
+        axs[2].tick_params(axis='both', which='major', labelsize=16)
 
         plt.show(block=True)
 
