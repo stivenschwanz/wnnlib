@@ -6,50 +6,9 @@ import unittest
 import time
 from wnnlib.vgram import VGRAMArray, VGRAMNode
 from wnnlib.codecs import FixedScalarCodec, AdaptiveScalarCodec
+from wnnlib.utils import BitUtils
 import gc
 from scipy import signal
-
-
-def belief(c, p, alpha):
-    """
-    Build a belief representation from the hyper-parameters $ \\boldsymbol{\\alpha} $.
-
-    Parameters:
-        c (int): Number of categories.
-        p (int): Maximum number of hypothesis to draw.
-        alpha (float[]): Hyper-parameters $ \\boldsymbol{\\alpha} $.
-    Return:
-       (bool[]): Sparsely encoded belief $ {\\bf b} $.
-       (int[]): Pseudo-counts vector $ {\\bf pc} $.
-       (float[]): Probability distribution $ \\boldsymbol{\\pi} $.
-   """
-
-    # ----------------------------------------------------------------------
-    # Draw the Categorical distribution $ \\boldsymbol{\\pi} $ from the Dirichlet
-    # distribution $ Dir \\left( c; \\boldsymbol{\\alpha} \\right) $.
-    # ----------------------------------------------------------------------
-    pi = np.random.dirichlet(alpha)
-
-    # ----------------------------------------------------------------------
-    # Build the pseudo-counts vector $ {\\bf pc} $.
-    # ----------------------------------------------------------------------
-    # pc = np.floor((p+1)*pi)
-    pc = np.round(p * pi)
-
-    # ----------------------------------------------------------------------
-    # Build the sparsely encoded belief $ {\\bf b} $.
-    # ----------------------------------------------------------------------
-    acc = 0
-    bel = np.zeros(c + p, order='C', dtype=bool)
-    for i in np.arange(c + p):
-        if i < c:
-            acc += pc[i]
-        if acc > 0:
-            # bel[i % c] = True
-            bel[i] = True
-            acc -= 1
-
-    return bel, pc, pi
 
 
 class NPCLAD:
@@ -337,7 +296,7 @@ class NPCLAD:
         # ----------------------------------------------------------------------
         as_0_0_1 = np.copy(self.alphas_0)
         as_0_0_1[self.j_n_1] += self.learning_rate
-        bs_0_0_1, _, _ = belief(self.cs, self.ps, as_0_0_1)
+        bs_0_0_1, _, _ = BitUtils.belief(self.cs, self.ps, as_0_0_1)
         self.bs_n_n_1 = np.copy(bs_0_0_1)
 
     def predict(self):
@@ -366,7 +325,7 @@ class NPCLAD:
         # Build the predicted belief $ {\\bf b}_{n+1|n} $ from the retrieved
         # hyper-parameters $ \\boldsymbol{\\alpha}_{n|n-1} $.
         # ----------------------------------------------------------------------
-        self.bs_n_1_n, _, self.pis_n_1_n = belief(self.cs, self.ps, alphas_n_n_1)
+        self.bs_n_1_n, _, self.pis_n_1_n = BitUtils.belief(self.cs, self.ps, alphas_n_n_1)
 
         # ----------------------------------------------------------------------
         # Predict the next state $ \\hat{\\bf s}_{n+1|n} $ for debug purposes.
@@ -384,7 +343,7 @@ class NPCLAD:
         # Draw the predicted posterior $ \\tilde{\\bf p}_{n+1|n} $ from the retrieved
         # hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $.
         # ----------------------------------------------------------------------
-        _, _, self.piz_n_1_n = belief(self.cz, self.pz, alphaz_n_n_1)
+        _, _, self.piz_n_1_n = BitUtils.belief(self.cz, self.pz, alphaz_n_n_1)
 
         # ----------------------------------------------------------------------
         # Predict the next observation $ \\hat{\\bf z}_{n+1|n} $.
@@ -430,7 +389,7 @@ class NPCLAD:
         # Rebuild the predicted belief $ {\\bf b}_{n+1|n} $ from the updated
         # hyper-parameters $ \\boldsymbol{\\alpha}_{n+1|n} $.
         # ----------------------------------------------------------------------
-        self.bs_n_1_n, _, _ = belief(self.cs, self.ps, alphas_n_1_n)
+        self.bs_n_1_n, _, _ = BitUtils.belief(self.cs, self.ps, alphas_n_1_n)
 
         # ----------------------------------------------------------------------
         # Retrieve the hyper-parameters $ \\tilde{\\boldsymbol{\\alpha}}_{n|n-1} $
@@ -612,7 +571,9 @@ class TestNPCLAD(unittest.TestCase):
         print('Elapsed time to detect {0} patterns: {1:.2e} seconds'.format(self.time_series_length,
                                                                             self.test_statistics[
                                                                                 "elapsed_detect_time"]))
-        print('Average learn time: {:.1} milliseconds'.format(self.test_statistics["average_detect_time"]))
+        print('Mean detection time: {0:.2f} milliseconds'.format(self.test_statistics["mean_detect_time"]*1000.0))
+        print('Max detection time: {0:.2f} milliseconds'.format(self.test_statistics["max_detect_time"]*1000.0))
+        print('Acc network memory: {0:.2f} kilobytes'.format(self.test_statistics["total_memory_stats"]))
 
         time_series_name = self.test_statistics["time_series_name"]
         time_series = self.test_statistics["time_series"]
@@ -769,6 +730,7 @@ class TestNPCLAD(unittest.TestCase):
 
         # Run the detector
         elapsed_time = 0
+        max_detect_time = 0
         for n in self.time_indexes:
             value = time_series[n]
             t = time.time()
@@ -778,7 +740,10 @@ class TestNPCLAD(unittest.TestCase):
              predicted_observation_symbol,
              observation_symbol,
              predicted_state_symbol,) = self.detector.handle(value)
-            elapsed_time += time.time() - t
+            detect_time = time.time() - t
+            elapsed_time += detect_time
+            if detect_time > max_detect_time:
+                max_detect_time = detect_time
             anomalies[n] = anomaly
             scores[n] = score
             predictions[n] = predicted_value
@@ -790,7 +755,8 @@ class TestNPCLAD(unittest.TestCase):
 
         # Collect the statistics
         self.test_statistics["elapsed_detect_time"] = elapsed_time
-        self.test_statistics["average_detect_time"] = 100 * elapsed_time / self.time_series_length
+        self.test_statistics["mean_detect_time"] = elapsed_time / self.time_series_length
+        self.test_statistics["max_detect_time"] = max_detect_time
         self.test_statistics["time_series_name"] = time_series_name
         self.test_statistics["time_series"] = time_series
         self.test_statistics["ground_truth"] = ground_truth
@@ -803,6 +769,9 @@ class TestNPCLAD(unittest.TestCase):
         self.test_statistics["layer0_memory_stats"] = layer0_memory_stats
         self.test_statistics["layer1_memory_stats"] = layer1_memory_stats
         self.test_statistics["layer2_memory_stats"] = layer2_memory_stats
+        self.test_statistics["total_memory_stats"] = layer0_memory_stats[-1] + \
+                                                     layer1_memory_stats[-1] + \
+                                                     layer2_memory_stats[-1]
 
     def test_0_cte_time_series_with_spike_anomalies(self):
         """
