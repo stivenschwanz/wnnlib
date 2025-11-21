@@ -210,7 +210,7 @@ class TestBitUtils(unittest.TestCase):
         seed = 1
         l3 = 14
         alpha3 = 1
-        seed = 0
+        seed = 10
         fontsize = 22
 
         np.random.seed(seed)
@@ -218,9 +218,9 @@ class TestBitUtils(unittest.TestCase):
         # Dirichlet's hyperparameters initialization
         alpha0 = 2 ** -12
         alpha = alpha0*np.ones(c, order='C', dtype=float)
-        alpha[l1] = alpha1
-        alpha[l2] = alpha2
-        alpha[l3] = alpha3
+        alpha[l1-1] = alpha1
+        alpha[l2-1] = alpha2
+        alpha[l3-1] = alpha3
 
         # Build the belief from the Dirichlet hyperparameters
         bel, pc, pi = BitUtils.belief(c, p, alpha)
@@ -274,9 +274,9 @@ class TestBitUtils(unittest.TestCase):
         axs[3].set_title(r'Recovered posterior $Bel^{-1}({\bf b}_{n+1|n}; p_{s})$', fontsize=fontsize, usetex=True)
 
         axs[3].set_xlabel(r'Symbol index $\ell^{\prime}$', fontsize=fontsize, usetex=True)
-        axs[3].set_xticks([1, l1+1, l2+1, l3+1, c, c+p, c+p+0.5],
-                          ['1', r'$\ell_{1}^{\prime}=$'+str(l1), r'$\ell_{2}^{\prime}=$'+str(l2),
-                           r'$\ell_{3}^{\prime}=$'+str(l3), r'$c_{s}$', r'$c_{s}+p_{s}$', ''])
+        axs[3].set_xticks([1, l1, l2, l3, c, c+p, c+p+0.5],
+                          ['1', r'$\ell_{1}^{\prime}=$'+str(l1), r'$\ell_{2}^{\prime}=$'+str(l2)+r'$\,\,\,$',
+                           r'$\,\,\,\ell_{3}^{\prime}=$'+str(l3), r'$c_{s}$', r'$c_{s}+p_{s}$', ''])
         axs[3].tick_params(axis='both', which='major', labelsize=16)
 
         plt.show(block=True)
@@ -296,7 +296,7 @@ class TestBitUtils(unittest.TestCase):
         seed = 1
         l3 = 24
         alpha3 = 1
-        seed = 0
+        seed = 2
         fontsize = 22
 
         np.random.seed(seed)
@@ -304,9 +304,9 @@ class TestBitUtils(unittest.TestCase):
         # Dirichlet's hyperparameters initialization
         alpha0 = 2 ** -12
         alpha = alpha0*np.ones(c, order='C', dtype=float)
-        alpha[l1] = alpha1
-        alpha[l2] = alpha2
-        alpha[l3] = alpha3
+        alpha[l1-1] = alpha1
+        alpha[l2-1] = alpha2
+        alpha[l3-1] = alpha3
 
         # Build the belief from the Dirichlet hyperparameters
         bel, pc, pi = BitUtils.belief(c, p, alpha)
@@ -351,8 +351,8 @@ class TestBitUtils(unittest.TestCase):
         axs[2].set_title(r'{\bf Step 6}: Next observation $\hat{\bf z}_{n+1|n} = \boldsymbol{\mu}^{(\hat{k})}_{z}$ ($\blacksquare\neq\hat{k}$, $\square=\hat{k}$)', fontsize=fontsize, usetex=True)
         axs[2].set_yticks([], [])
         axs[2].set_xlabel(r'Symbol index $\ell$', fontsize=fontsize, usetex=True)
-        axs[2].set_xticks([1, l1 + 1, l2 + 1, l3 + 1, c, c + 0.5],
-                          ['1', r'$\ell_{1}=$' + str(l1), r'$\ell_{2}=$' + str(l2),
+        axs[2].set_xticks([1, l1, l2, l3, c, c + 0.5],
+                          ['1', r'$\,\,\,\ell_{1}=$' + str(l1), r'$\ell_{2}=$' + str(l2),
                            r'$\ell_{3}=$' + str(l3), r'$c_{z}$', ''])
         axs[2].tick_params(axis='both', which='major', labelsize=16)
 
