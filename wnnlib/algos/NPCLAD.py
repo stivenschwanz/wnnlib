@@ -589,7 +589,7 @@ class TestNPCLAD(unittest.TestCase):
         layer2_memory_stats = self.test_statistics["layer2_memory_stats"]
 
         if self.plot_pretty_graphs:
-            fig = plt.figure(figsize=(16, 5))
+            fig = plt.figure(figsize=(16, 6))
             gs = fig.add_gridspec(2, hspace=0, height_ratios=[0.65, 0.35])
             axs = gs.subplots(sharex=True, sharey=False)
 
