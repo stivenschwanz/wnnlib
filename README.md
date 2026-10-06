@@ -74,3 +74,26 @@ Test binary utilities:
 ```bash
 python3 -m unittest wnnlib/utils/BitUtils.py
 ```
+
+## Generate distribution archives
+
+Make sure you have the latest version of PyPA’s build installed:
+```bash
+python3 -m pip install --upgrade build
+```
+
+Build the distribution archives:
+```bash
+python3 -m build
+```
+
+Install twine to upload the distribution packages:
+```bash
+python3 -m pip install --upgrade twine
+```
+
+Upload the distribution packages:
+```bash
+python3 -m twine upload --repository testpypi dist/*
+```
+

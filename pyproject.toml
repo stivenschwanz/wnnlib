@@ -1,0 +1,40 @@
+[build-system]
+requires = ["setuptools>=61.0.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "wnnlib"
+version = "0.1.0"
+authors = [
+  { name="Stiven Schwanz Dias", email="stven.dias@gmail.com" },
+]
+description = "Weightless Neural Networks library"
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+dependencies = [
+    "contourpy==1.3.3",
+    "cycler==0.12.1",
+    "fonttools==4.60.1",
+    "kiwisolver==1.4.9",
+    "matplotlib==3.10.7",
+    "numpy==2.3.5",
+    "packaging==25.0",
+    "pillow==12.0.0",
+    "pyparsing==3.2.5",
+    "python-dateutil==2.9.0.post0",
+    "scipy==1.16.3",
+    "six==1.17.0"
+]
+license = "Apache-2.0"
+license-files = ["LICEN[CS]E*"]
+
+[project.urls]
+Homepage = "https://github.com/stivenschwanz/wnnlib"
+Issues = "https://github.com/stivenschwanz/wnnlib/issues"
+
+[tool.setuptools.packages.find]
+where = ["src"]
