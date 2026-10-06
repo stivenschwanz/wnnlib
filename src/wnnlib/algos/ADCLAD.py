@@ -519,9 +519,9 @@ class ADCLAD:
         # print(gc.get_stats())
 
 
-class TestNPCLAD(unittest.TestCase):
+class TestADCLAD(unittest.TestCase):
     """
-    Extends unittest.TestCase class to implement unit tests for the NPCLAD class.
+    Extends unittest.TestCase class to implement unit tests for the ADCLAD class.
     """
 
     # Model parameters
@@ -558,7 +558,7 @@ class TestNPCLAD(unittest.TestCase):
         """
         Set up method: configure parameters and create a VGRAM node.
         """
-        self.detector = NPCLAD(cs=self.cs, ps=self.ps, alphas=self.alphas,
+        self.detector = ADCLAD(cs=self.cs, ps=self.ps, alphas=self.alphas,
                                az=self.az, bz=self.bz, cz=self.cz, dz=self.dz, pz=self.pz, alphaz=self.alphaz,
                                test=self.test, delta=self.delta, tau=self.tau,
                                learning_rate=self.learning_rate, sub_seq_len=self.sub_seq_len)
