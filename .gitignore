@@ -6,6 +6,7 @@ slprj
 .idea
 */__pycache__
 */*/__pycache__
+*/*/*/__pycache__
 */*.dia~
 wnndata/ucr_time_series_anomaly_datasets_2021.mat
 .venv
