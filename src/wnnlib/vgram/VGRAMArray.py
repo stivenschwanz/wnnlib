@@ -187,7 +187,7 @@ class TestVGRAMArray(unittest.TestCase):
         cls.array = VGRAMArray(output_dims=cls.output_dims, pattern_length=cls.pattern_length,
                                min_mem_size=cls.min_mem_size, max_mem_size=cls.max_mem_size,
                                min_learn_dist=cls.min_dist, max_recall_dist=cls.max_dist,
-                               default_outputs=np.zeros(shape=cls.output_dims, order='C', dtype=int), type_outputs=int)
+                               default_outputs=np.zeros(shape=cls.output_dims, order='C', dtype=np.int32), type_outputs=np.int32)
         cls.test_statistics = {"average_recall_time": 0.0,
                                "average_learn_time": 0.0,
                                "elapsed_recall_time": 0.0,
