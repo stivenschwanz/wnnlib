@@ -348,13 +348,13 @@ class TestSparseCodec(unittest.TestCase):
                                             sparse_vectors_length=2048,
                                             maximum_number_of_activated_bits=64,
                                             minimum_hamming_distance_between_vectors=96,
-                                            output_file_name="./src/wnndata/16k_sparse_vectors_seed_0.npz")
+                                            output_file_name="./data/16k_sparse_vectors_seed_0.npz")
 
     def test_1_codec(self):
         """
         Test case 1: load generated sparse vectors.
         """
-        sparse_codec = TestSparseCodec.DummySparseCodec(sparse_vectors_file="./src/wnndata/2k_sparse_vectors_seed_0.npz")
+        sparse_codec = TestSparseCodec.DummySparseCodec(sparse_vectors_file="./data/2k_sparse_vectors_seed_0.npz")
 
         dense_vector_length = 10
         dense_vector = np.random.random(size=dense_vector_length)

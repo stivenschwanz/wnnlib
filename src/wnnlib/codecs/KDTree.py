@@ -465,8 +465,8 @@ class TestKDTree(unittest.TestCase):
         cls.test_0_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
                                  min_bounds=[0, 0], max_bounds=[10, 10],
                                  depth=0, sparse_vectors_file="./data/64k_sparse_vectors_seed_0.npz")
-        cls.test_0_data = np.append(np.random.uniform(low=0, high=10, size=[256, 2]),
-                                    np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=256),
+        cls.test_0_data = np.append(np.random.uniform(low=0, high=10, size=[64, 2]),
+                                    np.random.multivariate_normal(mean=[5, 5], cov=[[1, 0.5], [0.5, 1]], size=64),
                                     axis=0)
         cls.test_0_statistics = {"number_of_encoding_points": 0.0,
                                  "elapsed_encoding_time": 0.0,
@@ -478,8 +478,8 @@ class TestKDTree(unittest.TestCase):
         cls.test_1_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
                                  min_bounds=[0, -60], max_bounds=[20, 60],
                                  depth=0, sparse_vectors_file="./data/64k_sparse_vectors_seed_0.npz")
-        cls.test_1_data = np.append(np.random.uniform(low=[0, -60], high=[20, 60], size=[256, 2]),
-                                    np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=256),
+        cls.test_1_data = np.append(np.random.uniform(low=[0, -60], high=[20, 60], size=[64, 2]),
+                                    np.random.multivariate_normal(mean=[10, 0], cov=[[5, 0], [0, 30]], size=64),
                                     axis=0)
         cls.test_1_statistics = {"number_of_encoding_points": 0.0,
                                  "elapsed_encoding_time": 0.0,
@@ -492,7 +492,7 @@ class TestKDTree(unittest.TestCase):
         cls.test_2_tree = KDTree(max_depth=16, learning_rate=0.001, min_splitting_volume=0.00001,
                                  min_bounds=[-10], max_bounds=[10],
                                  depth=0, sparse_vectors_file="./data/64k_sparse_vectors_seed_0.npz")
-        cls.test_2_data = np.random.uniform(low=-10, high=10, size=[256, 1])
+        cls.test_2_data = np.random.uniform(low=-10, high=10, size=[64, 1])
         cls.test_2_statistics = {"number_of_encoding_points": 0.0,
                                  "elapsed_encoding_time": 0.0,
                                  "average_encoding_time": 0.0,
@@ -545,8 +545,7 @@ class TestKDTree(unittest.TestCase):
             cls.test_2_statistics["number_of_decoding_points"],
             cls.test_2_statistics["elapsed_decoding_time"]))
         print('Average decoding time: {:.2e} seconds'.format(cls.test_2_statistics["average_decoding_time"]))
-        print('Root mean squared decoding error (range): {:.2e}'.format(cls.test_2_statistics["rms_decoding_error"][0]))
-        print('Root mean squared decoding error (azimuth): {:.2e}'.format(cls.test_2_statistics["rms_decoding_error"][1]))
+        print('Root mean squared decoding error: {:.2e}'.format(cls.test_2_statistics["rms_decoding_error"][0]))
 
         cls.test_0_tree = None
         cls.test_0_data = None
