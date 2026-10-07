@@ -38,4 +38,4 @@ jobs:
       env:
         PYTHONPATH: src
       run: |
-        pytest -v -c pyproject.toml
+        pytest -v --override-ini="python_files=*.py" --override-ini="python_classes=*Node *Utils Test*"
