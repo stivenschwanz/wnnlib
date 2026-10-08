@@ -41,4 +41,4 @@ jobs:
       env:
         PYTHONPATH: src
       run: |
-        pytest -v --override-ini="python_files=*.py" --override-ini="python_classes=*Node *Utils Test*"
+        pytest -v
