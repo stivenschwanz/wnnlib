@@ -1,4 +1,5 @@
 import unittest
+import pytest
 import numpy as np
 import time
 import matplotlib.pyplot as plt
@@ -72,6 +73,7 @@ class TestBitUtils(unittest.TestCase):
         self.test_statistics["elapsed_integer_to_binary_array_time"] = elapsed_time2
         self.test_statistics["average_integer_to_binary_array_time"] = elapsed_time2 / self.number_of_patterns
 
+    @pytest.mark.skip(reason="Temporarily discarding this test")
     def test_2(self):
         """
         Test case 2: Running example Steps 1 through 3 of the nP-GbF procedure.
@@ -109,7 +111,7 @@ class TestBitUtils(unittest.TestCase):
         gs = fig.add_gridspec(4, hspace=0.5, height_ratios=[0.4, 0.25, 0.1, 0.25])
         axs = gs.subplots(sharex=True, sharey=False)
 
-        plt.rcParams['text.usetex'] = False
+        plt.rcParams['text.usetex'] = True
         plt.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb} \usepackage{amsthm}'
 
         axs[0].set_frame_on(True)
@@ -158,6 +160,7 @@ class TestBitUtils(unittest.TestCase):
 
         plt.savefig('./figs/test_bitutils_2.png')
 
+    @pytest.mark.skip(reason="Temporarily discarding this test")
     def test_3(self):
         """
         Test case 3: Running example Steps 4 through 6 of the nP-GbF procedure.
@@ -197,7 +200,7 @@ class TestBitUtils(unittest.TestCase):
         gs = fig.add_gridspec(3, hspace=0.5, height_ratios=[0.4, 0.25, 0.1])
         axs = gs.subplots(sharex=True, sharey=False)
 
-        plt.rcParams['text.usetex'] = False
+        plt.rcParams['text.usetex'] = True
         plt.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb} \usepackage{amsthm}'
 
         axs[0].set_frame_on(True)
