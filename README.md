@@ -8,15 +8,14 @@ git clone https://github.com/stivenschwanz/wnnlib
 cd wnnlib
 ```
 
-Create the virtual environment:
+Install required system packages:
 ```bash
-pip3 install virtualenv
-python3 -m venv .venv
+sudo apt install python3-pip python3.12-venv python3-pytest
 ```
 
-Add the source folder permanently to the Python path:
+Create the virtual environment:
 ```bash
-echo "$(pwd)/src" > `echo $VIRTUAL_ENV/lib/python*/site-packages/`src.pth
+python3 -m venv .venv
 ```
 
 Activate the virtual environment:
@@ -24,7 +23,13 @@ Activate the virtual environment:
 source .venv/bin/activate
 ```
 
-Install required packages:
+
+Add the source folder permanently to the Python path:
+```bash
+echo "$(pwd)/src" > `echo $VIRTUAL_ENV/lib/python*/site-packages/`src.pth
+```
+
+Install required Python packages:
 ```bash
 pip3 install -r requirements.txt
 ```
@@ -38,44 +43,14 @@ source .venv/bin/activate
 
 Toy anomaly detection problems:
 ```bash
-python3 -m unittest src/wnnlib/algos/NPCLAD.py
+python3 -m unittest test/test_npclad.py
 ```
 
-## Run unit tests
+## Run all unit tests using PyTest
 
 Test VGRAM node:
 ```bash
-python3 -m unittest src/wnnlib/vgram/VGRAMNode.py
-```
-
-Test VGRAM array:
-```bash
-python3 -m unittest src/wnnlib/vgram/VGRAMArray.py
-```
-
-Test fixed scalar codec:
-```bash
-python3 -m unittest src/wnnlib/codecs/FixedScalarCodec.py
-```
-
-Test adaptive scalar codec:
-```bash
-python3 -m unittest src/wnnlib/codecs/AdaptiveScalarCodec.py
-```
-
-Test flex scalar codec:
-```bash
-python3 -m unittest src/wnnlib/codecs/FlexScalarCodec.py
-```
-
-Test KD-tree vector codec:
-```bash
-python3 -m unittest src/wnnlib/codecs/KDTree.py
-```
-
-Test binary utilities:
-```bash
-python3 -m unittest src/wnnlib/utils/BitUtils.py
+pytest
 ```
 
 ## Generate distribution archives

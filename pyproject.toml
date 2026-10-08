@@ -40,5 +40,6 @@ Issues = "https://github.com/stivenschwanz/wnnlib/issues"
 where = ["src"]
 
 [tool.pytest.ini_options]
-pythonpath = ["src"]
+testpaths = ["tests"]
+pythonpath = ["src", "."]
 

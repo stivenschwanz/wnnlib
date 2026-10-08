@@ -1,6 +1,4 @@
-import unittest
 from abc import ABC, abstractmethod
-from numpy import random
 import numpy as np
 from wnnlib.utils.BitUtils import BitUtils
 
@@ -313,61 +311,3 @@ class SparseCodec(ABC):
         sparse_vectors = npz_file['arr_0']
         sparse_vector_parameters = npz_file['arr_1']
         return sparse_vectors, sparse_vector_parameters
-
-
-class TestSparseCodec(unittest.TestCase):
-    """
-    Extends unittest.TestCase class to implement unit tests for the KDTree class.
-    """
-
-    class DummySparseCodec(SparseCodec):
-        """
-        Dummy class to test the sparse codec class.
-        """
-
-        def __init__(self, sparse_vectors_file):
-            self.dense_vectors_to_indexes_dict = []
-            self.counter = 0
-            super(TestSparseCodec.DummySparseCodec, self).__init__(sparse_vectors_file=sparse_vectors_file)
-
-        def dense_vector_to_sparse_vector_index(self, dense_vector):
-            sparse_vector_index = self.counter
-            self.counter += 1
-            self.dense_vectors_to_indexes_dict.append(dense_vector)
-            return sparse_vector_index
-
-        def sparse_vector_index_to_dense_vector(self, sparse_vector_index):
-            return self.dense_vectors_to_indexes_dict[sparse_vector_index]
-
-    def test_0_codec(self):
-        """
-        Test case 0: generate the sparse vectors.
-        """
-        SparseCodec.generate_sparse_vectors(random_seed=0,
-                                            number_of_sparse_vectors=16 * 1024,
-                                            sparse_vectors_length=2048,
-                                            maximum_number_of_activated_bits=64,
-                                            minimum_hamming_distance_between_vectors=96,
-                                            output_file_name="./data/16k_sparse_vectors_seed_0.npz")
-
-    def test_1_codec(self):
-        """
-        Test case 1: load generated sparse vectors.
-        """
-        sparse_codec = TestSparseCodec.DummySparseCodec(sparse_vectors_file="./data/2k_sparse_vectors_seed_0.npz")
-
-        dense_vector_length = 10
-        dense_vector = np.random.random(size=dense_vector_length)
-        print(dense_vector)
-        sparse_vector = sparse_codec.encode(dense_vector)
-        print(sparse_vector)
-        dense_vector2 = sparse_codec.decode(sparse_vector)
-        print(dense_vector2)
-        one_hot_vector = sparse_codec.one_hot_encoder(dense_vector)
-        print(one_hot_vector)
-
-        print(getattr(sparse_codec, 'sparse_vectors_length'))
-
-
-if __name__ == '__main__':
-    unittest.main()

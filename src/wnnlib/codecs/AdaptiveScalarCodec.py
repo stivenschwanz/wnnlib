@@ -1,5 +1,3 @@
-import unittest
-from numpy import random
 import numpy as np
 from wnnlib.utils.BitUtils import BitUtils
 from collections import deque
@@ -162,59 +160,3 @@ class AdaptiveScalarCodec:
         decoded_value = self.d1 * n_dec + self.d2
 
         return decoded_value
-
-
-class TestAdaptiveScalarCodec(unittest.TestCase):
-    """
-    Extends unittest.TestCase class to implement unit tests for the AdaptiveScalarCodec class.
-    """
-
-    @classmethod
-    def setUpClass(cls):
-        """
-        Set up method:
-        """
-        cls.scalar_codec = AdaptiveScalarCodec(number_of_active_bits=48,
-                                               total_number_of_bits=2048,
-                                               max_window_size=10)
-
-    @classmethod
-    def tearDownClass(cls):
-        """
-        Tear down method:
-        """
-        cls.scalar_codec = None
-
-    def test_0_codec(self):
-        """
-        Test case 0:
-        """
-
-        input_values1 = 10 * np.random.random(size=10)
-        for input_value in input_values1:
-            print('------------------------------')
-            print('input_value=', input_value)
-            sparse_vector = self.scalar_codec.encode(input_value)
-            print('sparce_vector=', sparse_vector)
-            decoded_value = self.scalar_codec.decode(sparse_vector)
-            print('decoded_value=', decoded_value)
-
-        input_values2 = 100 * np.random.random(size=10)
-        for input_value in input_values2:
-            print('------------------------------')
-            print('input_value=', input_value)
-            sparse_vector = self.scalar_codec.encode(input_value)
-            print('sparce_vector=', sparse_vector)
-            decoded_value = self.scalar_codec.decode(sparse_vector)
-            print('decoded_value=', decoded_value)
-
-        for input_value in input_values1:
-            print('------------------------------')
-            print('input_value=', input_value)
-            sparse_vector = self.scalar_codec.encode(input_value)
-            print('sparce_vector=', sparse_vector)
-            decoded_value = self.scalar_codec.decode(sparse_vector)
-            print('decoded_value=', decoded_value)
-
-if __name__ == '__main__':
-    unittest.main()
