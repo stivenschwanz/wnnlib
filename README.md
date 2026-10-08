@@ -10,7 +10,7 @@ cd wnnlib
 
 Install required system packages:
 ```bash
-sudo apt install python3-pip python3.12-venv python3-pytest
+sudo apt install python3-pip python3.12-venv
 ```
 
 Create the virtual environment:
@@ -48,7 +48,7 @@ python3 -m unittest test/test_npclad.py
 
 ## Run all unit tests using PyTest
 
-Test VGRAM node:
+Run all tests under the ./tests folder:
 ```bash
 pytest
 ```

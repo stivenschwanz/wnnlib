@@ -65,6 +65,10 @@ class TestNPCLAD(unittest.TestCase):
         print('Max detection time: {0:.2f} milliseconds'.format(self.test_statistics["max_detect_time"]*1000.0))
         print('Acc network memory: {0:.2f} kilobytes'.format(self.test_statistics["total_memory_stats"]))
 
+        # Ensure external LaTeX is off so it uses the native engine
+        plt.rcParams["text.usetex"] = False
+        plt.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb} \usepackage{amsthm}'
+
         time_series_name = self.test_statistics["time_series_name"]
         time_series = self.test_statistics["time_series"]
         ground_truth = self.test_statistics["ground_truth"]

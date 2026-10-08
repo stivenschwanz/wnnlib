@@ -109,7 +109,7 @@ class TestBitUtils(unittest.TestCase):
         gs = fig.add_gridspec(4, hspace=0.5, height_ratios=[0.4, 0.25, 0.1, 0.25])
         axs = gs.subplots(sharex=True, sharey=False)
 
-        plt.rcParams['text.usetex'] = True
+        plt.rcParams['text.usetex'] = False
         plt.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb} \usepackage{amsthm}'
 
         axs[0].set_frame_on(True)
@@ -197,7 +197,7 @@ class TestBitUtils(unittest.TestCase):
         gs = fig.add_gridspec(3, hspace=0.5, height_ratios=[0.4, 0.25, 0.1])
         axs = gs.subplots(sharex=True, sharey=False)
 
-        plt.rcParams['text.usetex'] = True
+        plt.rcParams['text.usetex'] = False
         plt.rcParams['text.latex.preamble'] = r'\usepackage{amsmath} \usepackage{amssymb} \usepackage{amsthm}'
 
         axs[0].set_frame_on(True)
