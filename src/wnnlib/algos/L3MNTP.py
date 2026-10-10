@@ -5,7 +5,7 @@ from wnnlib.utils.BitUtils import BitUtils
 import gc
 
 
-class LLMNTP:
+class L3MNTP:
     """
     This class implements a continuous learning (CL), next token prediction (NTP) for streamed sequences of tokens
     using a non-parametric Bayesian procedure to build a suitable model of the underlying stochastic process emitting
